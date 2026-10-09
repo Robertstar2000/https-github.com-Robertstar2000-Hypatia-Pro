@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useToast } from '../../toast';
 import { useExperiment } from '../../services';
+import { getStoredLLMConfig, saveLLMConfig } from '../../services/llmConfig';
 import { LLMProviderModal } from '../common/LLMProviderModal';
 import { 
     FlaskConical, 
@@ -49,9 +50,24 @@ export const MifecoLanding: React.FC<MifecoLandingProps> = ({
     try {
         if (geminiKey.trim()) {
             localStorage.setItem('hmap-gemini-api-key', geminiKey.trim());
+            const curConfig = getStoredLLMConfig();
+            saveLLMConfig({
+                ...curConfig,
+                provider: 'google',
+                apiKey: geminiKey.trim(),
+                isVerified: true
+            });
             addToast('Gemini API credentials successfully synchronized.', 'success');
         } else {
             localStorage.removeItem('hmap-gemini-api-key');
+            const curConfig = getStoredLLMConfig();
+            if (curConfig.provider === 'google') {
+                saveLLMConfig({
+                    ...curConfig,
+                    apiKey: '',
+                    isVerified: false
+                });
+            }
             addToast('Custom API key removed. Reverting to environment default.', 'info');
         }
         onKeyUpdate();

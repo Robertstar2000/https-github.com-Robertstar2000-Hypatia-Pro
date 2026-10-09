@@ -12,8 +12,8 @@ export default defineConfig(({ mode }) => {
       },
       plugins: [react()],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // Safe client environment defines - Secrets are strictly held server-side in Secret Manager
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
       },
       resolve: {
         alias: {

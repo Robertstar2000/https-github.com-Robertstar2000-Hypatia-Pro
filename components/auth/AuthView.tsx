@@ -3,6 +3,7 @@ import { WaitlistModal } from './WaitlistModal';
 import { MifecoStripeModal } from './MifecoStripeModal';
 import { LLMProviderModal } from '../common/LLMProviderModal';
 import { getKeyStatus } from '../../services/api';
+import { getStoredLLMConfig, saveLLMConfig } from '../../services/llmConfig';
 import { useToast } from '../../toast';
 import { 
     FlaskConical, 
@@ -116,6 +117,13 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
       }
       if (data.user.geminiKey) {
         localStorage.setItem('hmap-gemini-api-key', data.user.geminiKey);
+        const curConfig = getStoredLLMConfig();
+        saveLLMConfig({
+          ...curConfig,
+          provider: 'google',
+          apiKey: data.user.geminiKey.trim(),
+          isVerified: true
+        });
       }
       
       addToast(`Welcome back, ${data.user.username || 'Researcher'}!`, 'success');

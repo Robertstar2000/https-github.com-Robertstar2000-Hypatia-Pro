@@ -91,7 +91,9 @@ export const getPromptForStep = (
     let config: any = {};
 
     const role = `Role: ${context.experimentField} Scientist (Hypatia). Adhere to Scientific Method.`;
-    const feedbackInstruction = feedback ? `\n\nFB: "${feedback}"` : "";
+    const feedbackInstruction = feedback 
+        ? `\n\n[MANDATORY RESOLUTION DIRECTIVE / FEEDBACK]:\n${feedback}\nYou must explicitly follow, incorporate, and fulfill these instructions in generating this step's output.` 
+        : "";
 
     switch (stepId) {
         case 1: // Question

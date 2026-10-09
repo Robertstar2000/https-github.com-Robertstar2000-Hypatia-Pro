@@ -133,7 +133,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                     Provide a concise, bulleted factual synthesis to append to the project brief. Do NOT output markdown code blocks or greeting text.
                 `;
 
-                const response = await callGeminiWithRetry('gemini-2.5-flash', { contents: prompt });
+                const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
                 const extractedText = safeGetText(response);
                 
                 setDescription(prev => {
@@ -203,6 +203,60 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                         <i className="bi bi-database-check text-primary-glow me-2"></i> Offline IndexedDB
                     </span>
                 </div>
+
+                {/* Specialized Studios Quick Access Ribbon */}
+                <div className="row g-2 justify-content-center mt-3 pt-2 max-w-4xl mx-auto font-mono text-xs">
+                    <div className="col-6 col-md-auto">
+                        <button
+                            type="button"
+                            onClick={() => setView('harness')}
+                            className="btn btn-outline-info btn-sm w-100 py-1.5 px-3 d-flex align-items-center justify-content-center gap-1.5 border-opacity-25 hover-border-info text-white rounded-3 bg-dark bg-opacity-50"
+                        >
+                            <i className="bi bi-flask-fill text-info"></i>
+                            <span>Discovery Harnesses</span>
+                        </button>
+                    </div>
+                    <div className="col-6 col-md-auto">
+                        <button
+                            type="button"
+                            onClick={() => setView('reasoning')}
+                            className="btn btn-outline-primary btn-sm w-100 py-1.5 px-3 d-flex align-items-center justify-content-center gap-1.5 border-opacity-25 hover-border-primary text-white rounded-3 bg-dark bg-opacity-50"
+                        >
+                            <i className="bi bi-lightbulb-fill text-primary-glow"></i>
+                            <span>Hypothesis Studio</span>
+                        </button>
+                    </div>
+                    <div className="col-6 col-md-auto">
+                        <button
+                            type="button"
+                            onClick={() => setView('graph')}
+                            className="btn btn-outline-success btn-sm w-100 py-1.5 px-3 d-flex align-items-center justify-content-center gap-1.5 border-opacity-25 hover-border-success text-white rounded-3 bg-dark bg-opacity-50"
+                        >
+                            <i className="bi bi-share-fill text-success"></i>
+                            <span>Scientific Graph</span>
+                        </button>
+                    </div>
+                    <div className="col-6 col-md-auto">
+                        <button
+                            type="button"
+                            onClick={() => setView('governance')}
+                            className="btn btn-outline-warning btn-sm w-100 py-1.5 px-3 d-flex align-items-center justify-content-center gap-1.5 border-opacity-25 hover-border-warning text-white rounded-3 bg-dark bg-opacity-50"
+                        >
+                            <i className="bi bi-people-fill text-warning"></i>
+                            <span>Scientific Specialists</span>
+                        </button>
+                    </div>
+                    <div className="col-12 col-md-auto">
+                        <button
+                            type="button"
+                            onClick={() => setView('entitlements-audit')}
+                            className="btn btn-outline-danger btn-sm w-100 py-1.5 px-3 d-flex align-items-center justify-content-center gap-1.5 border-opacity-25 hover-border-danger text-white rounded-3 bg-dark bg-opacity-50"
+                        >
+                            <i className="bi bi-shield-lock-fill text-danger"></i>
+                            <span>System Audit</span>
+                        </button>
+                    </div>
+                </div>
             </section>
 
             {/* Active Investigation Resume Banner */}
@@ -254,7 +308,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                         AI ENGINE: {keyStatus.providerName || 'Google Gemini'}
                                     </span>
                                     <span className="badge bg-dark border border-secondary border-opacity-25 text-white-50 font-mono small">
-                                        {keyStatus.model || 'gemini-2.5-flash'}
+                                        {keyStatus.model || 'gemini-3.8-flash'}
                                     </span>
                                     {keyStatus.isOAuth ? (
                                         <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 small">

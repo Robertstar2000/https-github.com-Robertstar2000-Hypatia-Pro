@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { RunningManAnimation } from './RunningManAnimation';
 
 export const AgenticAnalysisView = ({ agenticRun, title = "AI Agents at Work...", subtitle = "A multi-agent workflow is running." }) => {
     const logContainerRef = useRef<HTMLDivElement>(null);
@@ -11,9 +12,10 @@ export const AgenticAnalysisView = ({ agenticRun, title = "AI Agents at Work..."
     
     return (
         <div className="agentic-analysis-view border border-secondary border-opacity-10 rounded-3 bg-black bg-opacity-20 p-4 mb-4">
-            <div className="text-center mb-4">
+            <div className="text-center mb-4 d-flex flex-column align-items-center">
+                <RunningManAnimation size="md" className="mb-2" />
                 <h5 className="fw-bold mb-1 text-primary-glow">{title}</h5>
-                <p className="text-white-50 small">{subtitle}</p>
+                <p className="text-white-50 small mb-0">{subtitle}</p>
             </div>
             
             {agenticRun.maxIterations > 0 && (

@@ -54,7 +54,7 @@ export const ManualDataEntry = ({ onComplete, context }) => {
                 
                 Output ONLY raw JSON array.`;
 
-                const response = await callGeminiWithRetry('gemini-3.5-flash', { 
+                const response = await callGeminiWithRetry('gemini-3.8-flash', { 
                     contents: prompt, 
                     config: { responseMimeType: "application/json", responseSchema: DYNAMIC_TABLE_SCHEMA } 
                 });

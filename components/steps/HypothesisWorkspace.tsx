@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { useExperiment } from '../../context/ExperimentContext';
 import { extractJson, tryRepairJson } from '../../services';
+import { RunningManAnimation } from '../common/RunningManAnimation';
 
 interface HypothesisWorkspaceProps {
     onStepComplete: () => void;
@@ -360,15 +361,22 @@ const HypothesisWorkspaceInner: React.FC<HypothesisWorkspaceProps> = ({ onStepCo
                 <h5 className="font-mono text-white mb-2">Tree of Thought: Hypothesis Architecture</h5>
                 
                 {isLoading ? (
-                    <div className="w-100 mb-4" style={{ maxWidth: '600px' }}>
-                        <div className="d-flex justify-content-between mb-2 small font-mono text-white-50">
+                    <div className="w-100 mb-4 d-flex flex-column align-items-center" style={{ maxWidth: '600px' }}>
+                        <RunningManAnimation 
+                            size="md" 
+                            color="var(--primary-glow)" 
+                            label="Synthesizing Tree of Thought"
+                            sublabel="Multi-branch cognitive exploration in progress"
+                            className="mb-3"
+                        />
+                        <div className="d-flex justify-content-between mb-2 small font-mono text-white-50 w-100">
                             <span className={progressStep >= 1 ? 'text-primary-glow fw-bold' : ''}>1: Seed Concepts</span>
                             <span className={progressStep >= 2 ? 'text-primary-glow fw-bold' : ''}>2: Evaluate & Prune</span>
                             <span className={progressStep >= 3 ? 'text-primary-glow fw-bold' : ''}>3: Depth Layer 3</span>
                             <span className={progressStep >= 4 ? 'text-primary-glow fw-bold' : ''}>4: Refine Alternatives</span>
                             <span className={progressStep >= 5 ? 'text-primary-glow fw-bold' : ''}>5: Final Formulation</span>
                         </div>
-                        <div className="progress bg-dark border border-secondary border-opacity-25" style={{ height: '8px' }}>
+                        <div className="progress bg-dark border border-secondary border-opacity-25 w-100" style={{ height: '8px' }}>
                             <div 
                                 className="progress-bar bg-primary progress-bar-striped progress-bar-animated" 
                                 role="progressbar" 
@@ -395,7 +403,10 @@ const HypothesisWorkspaceInner: React.FC<HypothesisWorkspaceProps> = ({ onStepCo
                     disabled={isLoading}
                 >
                     {isLoading ? (
-                        <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Synthesizing Tree of Thought...</>
+                        <span className="d-inline-flex align-items-center gap-2">
+                            <RunningManAnimation size="xs" color="#fff" showTrack={false} inline />
+                            <span>Synthesizing Tree of Thought...</span>
+                        </span>
                     ) : (
                         <><i className="bi bi-play-circle me-2"></i> Generate Hypothesis Tree</>
                     )}

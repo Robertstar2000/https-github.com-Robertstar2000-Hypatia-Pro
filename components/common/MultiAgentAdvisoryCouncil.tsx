@@ -68,7 +68,7 @@ ${stepContent.slice(0, 1500)}
 Task: Provide concise, highly actionable critique (3 bullet points max) from your professional viewpoint to improve rigor before journal submission.`;
 
         try {
-            const response = await callGeminiWithRetry('gemini-3.5-flash', { contents: prompt });
+            const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
             const text = safeGetText(response);
             if (text) {
                 setAdvice(text.trim());

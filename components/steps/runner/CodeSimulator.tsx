@@ -179,7 +179,7 @@ export const CodeSimulator = ({ onComplete, context }) => {
                         - Outline a single sequential loop structure that creates sample records and maps them cleanly.
                     `;
                     
-                    const simplifierResponse = await callGeminiWithRetry('gemini-3.5-flash', { 
+                    const simplifierResponse = await callGeminiWithRetry('gemini-3.8-flash', { 
                         contents: simplifierPrompt 
                     });
                     if (!isMounted.current) return;
@@ -218,7 +218,7 @@ export const CodeSimulator = ({ onComplete, context }) => {
                         - Output ONLY the raw JS code inside a \`\`\`javascript block.
                     `;
                     
-                    const coderResponse = await callGeminiWithRetry('gemini-3.5-flash', { 
+                    const coderResponse = await callGeminiWithRetry('gemini-3.8-flash', { 
                         contents: coderPrompt 
                     });
                     if (!isMounted.current) return;
@@ -398,7 +398,7 @@ export const CodeSimulator = ({ onComplete, context }) => {
                 `;
                 
                 try {
-                    const res = await callGeminiWithRetry('gemini-3.5-flash', { contents: debuggerPrompt });
+                    const res = await callGeminiWithRetry('gemini-3.8-flash', { contents: debuggerPrompt });
                     if (isMounted.current) {
                         if (isCancelledRef.current) return;
                         currentCode = extractJSCode(safeGetText(res));

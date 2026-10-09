@@ -32,7 +32,7 @@ export const runSimulationCodingAgent = async ({ experiment, updateLog, feedback
     Output ONLY the valid Node.js code wrapped in \`\`\`javascript ... \`\`\`
     `;
 
-    const res = await callGeminiWithRetry('gemini-3.5-flash', { contents: prompt });
+    const res = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
     
     // Extract code
     const text = safeGetText(res);
@@ -124,7 +124,7 @@ export const runManualFormQA = async (schemaJson: string, context: any) => {
     Output ONLY valid JSON matching the QA schema.
     `;
 
-    const response = await callGeminiWithRetry('gemini-3.5-flash', { 
+    const response = await callGeminiWithRetry('gemini-3.8-flash', { 
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: DATA_QA_SCHEMA }
     });
@@ -169,7 +169,7 @@ export const runDataQA = async (csvData: string, context: any) => {
     Output ONLY valid JSON matching the QA schema.
     `;
 
-    const response = await callGeminiWithRetry('gemini-3.5-flash', { 
+    const response = await callGeminiWithRetry('gemini-3.8-flash', { 
         contents: prompt,
         config: { responseMimeType: "application/json", responseSchema: DATA_QA_SCHEMA }
     });
@@ -204,7 +204,7 @@ export const runDataAnalysisAgent = async ({ experiment, csvData, updateLog, fee
     - Hypothesis: ${context.hypothesis}
     `;
     
-    const profileRes = await callGeminiWithRetry('gemini-3.1-flash-lite', { contents: profilerPrompt });
+    const profileRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: profilerPrompt });
     updateLog('Profiler', 'Data profile generated.');
 
     // 2. Statistician & Visualizer
@@ -233,7 +233,7 @@ export const runDataAnalysisAgent = async ({ experiment, csvData, updateLog, fee
     CRITICAL: Output MUST be valid JSON matching the schema.
     `;
     
-    const analysisRes = await callGeminiWithRetry('gemini-3.5-flash', { 
+    const analysisRes = await callGeminiWithRetry('gemini-3.8-flash', { 
         contents: analysisPrompt,
         config: { 
             responseMimeType: "application/json", 
@@ -282,7 +282,7 @@ export const runDataAnalysisAgent = async ({ experiment, csvData, updateLog, fee
     RESULTS: ${resultJson}
     Output JSON: { "BLOCKER_ALERT": [ { "severity": "critical"|"warning", "msg": "..." } ] } or empty.`;
     
-    const blockerRes = await callGeminiWithRetry('gemini-3.5-flash', { contents: blockerPrompt });
+    const blockerRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: blockerPrompt });
     const blockers = parseBlockers(safeGetText(blockerRes));
 
     return { finalOutput: resultJson, blockers, logSummary: safeGetText(profileRes) };
@@ -309,15 +309,15 @@ export const runInterpretationAgent = async ({ experiment, updateLog }: { experi
     Output a rigorous Markdown report.
     `;
     
-    const res = await callGeminiWithRetry('gemini-3.5-flash', { contents: analysisPrompt });
+    const res = await callGeminiWithRetry('gemini-3.8-flash', { contents: analysisPrompt });
 
     updateLog('Auditor', 'Checking for over-claiming or logical leaps...');
     const blockerPrompt = `Analyze this conclusion for over-claiming.
     CONCLUSION: ${safeGetText(res)}
     Output JSON: { "BLOCKER_ALERT": [ { "severity": "critical"|"warning", "msg": "..." } ] } or empty.`;
     
-    const blockerRes = await callGeminiWithRetry('gemini-3.5-flash', { contents: blockerPrompt });
-    const blockers = parseBlockers(safeGetText(blockerRes));
+    const secondBlockerRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: blockerPrompt });
+    const blockers = parseBlockers(safeGetText(secondBlockerRes));
 
     return { finalOutput: safeGetText(res), blockers };
 };
@@ -432,7 +432,7 @@ Ensure the blueprint specifies:
 6. Extended Discussion addressing the exact harsh critiques raised by Reviewer 2 and Reviewer 3 in Step 9.
 7. Data provenance, limitations of simulated vs empirical data, and future directions.`;
 
-    const outlineRes = await callGeminiWithRetry('gemini-3.5-flash', { contents: outlinePrompt });
+    const outlineRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: outlinePrompt });
     const outlineText = safeGetText(outlineRes);
 
     updateLog('Lead Author', 'Drafting comprehensive primary manuscript with exhaustive length, depth, mathematical models, and 13 presentation slides...');
@@ -463,7 +463,7 @@ CRITICAL SCIENTIFIC STANDARDS & LENGTH REQUIREMENTS:
    - Slides 3-12: Sequential narrative of Steps 1 through 10 in 12th-grade science language (title, 3-5 bullet points, layman explanation, design prompt).
    - Slide 13: Summary, Open Questions, Further Research & Q&A.`;
 
-    const draftRes = await callGeminiWithRetry('gemini-3.5-flash', { 
+    const draftRes = await callGeminiWithRetry('gemini-3.8-flash', { 
         contents: fullDraftPrompt,
         config: {
             responseMimeType: "application/json",
@@ -488,7 +488,7 @@ AUDIT CRITERIA:
 
 Output a concise, high-priority list of specific editorial directives for the Chief Academic Editor to expand, deepen, and polish to reach definitive publication standards.`;
 
-    const auditRes = await callGeminiWithRetry('gemini-3.5-flash', { contents: auditPrompt });
+    const auditRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: auditPrompt });
     const auditFeedback = safeGetText(auditRes);
 
     // Step 5: Chief Academic Editor Refinement & Deep Expansion
@@ -508,7 +508,7 @@ ${JSON.stringify(referencesList, null, 2)}
 
 Ensure the output is a pristine, valid JSON object strictly complying with the PUBLICATION_SCHEMA (full_paper, abstract, layman_abstract, slides). Keep all 13 presentation slides intact and fully fleshed out in 12th-grade science language.`;
 
-    const finalRes = await callGeminiWithRetry('gemini-3.5-flash', {
+    const finalRes = await callGeminiWithRetry('gemini-3.8-flash', {
         contents: finalPolishingPrompt,
         config: {
             responseMimeType: "application/json",
@@ -549,8 +549,8 @@ export const runLiteratureReviewAgent = async ({ experiment, updateLog }: { expe
     3. Ensure you capture the full titles, authors, and publication years.
     `;
 
-    // Use gemini-3.1-flash-lite for search as it's optimized for grounding
-    const searchRes = await callGeminiWithRetry('gemini-3.1-flash-lite', { 
+    // Use gemini-3.8-flash for search as it's optimized for multimodal and grounding
+    const searchRes = await callGeminiWithRetry('gemini-3.8-flash', { 
         contents: searchPrompt, 
         config: { 
             tools: [{ googleSearch: {} }],
@@ -605,10 +605,10 @@ export const runLiteratureReviewAgent = async ({ experiment, updateLog }: { expe
     OUTPUT: Valid JSON matching the required schema.
     `;
 
-    // Use gemini-3.5-flash for complex synthesis and schema adherence
+    // Use gemini-3.8-flash for complex synthesis and schema adherence
     // Use executeStepWorkflow for built-in self-correction
     const output = await executeStepWorkflow(
-        'gemini-3.5-flash', 
+        'gemini-3.8-flash', 
         { contents: synthesisPrompt }, 
         context, 
         true, 
@@ -629,7 +629,7 @@ export const runPeerReviewAgent = async ({ experiment, updateLog }: { experiment
     SAP: ${experiment.stepData[5]?.output || ""}
     `.substring(0, 15000);
     const methPrompt = `ACT AS: Reviewer 2 (Harsh Methodologist). Critique the following methodology for flaws, assumptions, and bias:\n\n${methodologyContent}`;
-    const methRes = await callGeminiWithRetry('gemini-3.1-flash-lite', { contents: methPrompt });
+    const methRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: methPrompt });
     critiqueLog += `\n\n### Methodology Critique\n${safeGetText(methRes)}`;
 
     // Turn 2: Statistical Reviewer (Steps 7, 8)
@@ -639,13 +639,13 @@ export const runPeerReviewAgent = async ({ experiment, updateLog }: { experiment
     Interpretation: ${experiment.stepData[8]?.output || ""}
     `.substring(0, 15000);
     const statPrompt = `ACT AS: Reviewer 3 (Strict Statistician). Critique the following results and interpretation for p-hacking, overfitting, or unwarranted conclusions:\n\n${resultsContent}`;
-    const statRes = await callGeminiWithRetry('gemini-3.1-flash-lite', { contents: statPrompt });
+    const statRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: statPrompt });
     critiqueLog += `\n\n### Statistical Critique\n${safeGetText(statRes)}`;
 
     // Turn 3: Editor (Final Consensus)
     updateLog('Editor-in-Chief', 'Synthesizing final adversarial peer review report...');
     const finalReportPrompt = `ACT AS: Journal Editor-in-Chief. Synthesize the following two peer review critiques into a final, highly structured adversarial peer review report. Include 'Major Revisions', 'Minor Revisions', and 'Fatal Flaws'.\n\nCRITIQUES:\n${critiqueLog}`;
-    const finalRes = await callGeminiWithRetry('gemini-3.5-flash', { contents: finalReportPrompt });
+    const finalRes = await callGeminiWithRetry('gemini-3.8-flash', { contents: finalReportPrompt });
     try {
         return safeGetText(finalRes);
     } catch (e) {
@@ -677,6 +677,6 @@ Keep it strictly under 500 words, highly professional, and academic.
 EXPERIMENT DATA:
 ${fullContext}`;
 
-    const res = await callGeminiWithRetry('gemini-3.5-flash', { contents: prompt });
+    const res = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
     return safeGetText(res);
 };

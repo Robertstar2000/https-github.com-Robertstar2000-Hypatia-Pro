@@ -18,6 +18,40 @@ export const ResearchSummary: React.FC<ResearchSummaryProps> = ({ setView }) => 
         }
     };
 
+    // Helper to safely extract readable string summary from string, JSON, or complex object
+    const formatSummaryText = (val: any): string => {
+        if (!val) return 'Active investigation in progress.';
+        if (typeof val === 'string') {
+            const trimmed = val.trim();
+            if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    return formatSummaryText(parsed);
+                } catch {
+                    return trimmed;
+                }
+            }
+            return trimmed;
+        }
+        if (typeof val === 'object' && val !== null) {
+            // Check for common research artifact properties
+            if (typeof val.abstract === 'string' && val.abstract) return val.abstract;
+            if (typeof val.layman_abstract === 'string' && val.layman_abstract) return val.layman_abstract;
+            if (typeof val.summary === 'string' && val.summary) return val.summary;
+            if (typeof val.research_question === 'string' && val.research_question) return val.research_question;
+            if (typeof val.synthesis_narrative === 'string' && val.synthesis_narrative) return val.synthesis_narrative;
+            if (typeof val.full_paper === 'string' && val.full_paper) return val.full_paper.slice(0, 300) + '...';
+            if (typeof val.title === 'string' && val.title) return val.title;
+            // Fallback for generic objects
+            const textParts = Object.values(val).filter(v => typeof v === 'string') as string[];
+            if (textParts.length > 0) {
+                return textParts.join(' ').slice(0, 300) + (textParts.join(' ').length > 300 ? '...' : '');
+            }
+            return 'Active scientific investigation in progress.';
+        }
+        return String(val);
+    };
+
     // Defensively find the last step with any output by inspecting actual keys
     const lastStepWithOutput = latestExperiment.stepData
         ? Object.keys(latestExperiment.stepData)
@@ -29,7 +63,8 @@ export const ResearchSummary: React.FC<ResearchSummaryProps> = ({ setView }) => 
 
     let summaryText = 'Active investigation in progress.';
     if (lastStepWithOutput && latestExperiment.stepData && latestExperiment.stepData[lastStepWithOutput]) {
-        summaryText = latestExperiment.stepData[lastStepWithOutput].summary || latestExperiment.stepData[lastStepWithOutput].output || summaryText;
+        const raw = latestExperiment.stepData[lastStepWithOutput].summary || latestExperiment.stepData[lastStepWithOutput].output;
+        summaryText = formatSummaryText(raw);
     }
     
     const currentStepNum = Math.min(Math.max(latestExperiment.currentStep || 1, 1), 10);

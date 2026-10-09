@@ -17,9 +17,10 @@ export interface EntitlementRecord {
   user_id: string;
   customer_id?: string;
   subscription_id?: string;
+  product?: string;
   plan: string;
   tier: string;
-  status: 'active' | 'past_due' | 'canceled' | 'trialing';
+  status: 'active' | 'past_due' | 'canceled' | 'trialing' | 'expired' | 'unpaid';
   current_period_end?: string;
   updated_at?: string;
 }
@@ -165,6 +166,73 @@ const migrations: Migration[] = [
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_experiments_user ON experiments_store(user_email);
+      `);
+    }
+  },
+  {
+    version: '004_harnesses_and_knowledge_graph',
+    name: 'Multi-app product entitlements, persistent knowledge graph, harness deliverables, and trade studies',
+    up: (db) => {
+      try {
+        db.exec("ALTER TABLE entitlements ADD COLUMN product TEXT DEFAULT 'hypatia-pro'");
+      } catch (e) {
+        // column may exist
+      }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS knowledge_nodes (
+          id TEXT PRIMARY KEY,
+          user_email TEXT NOT NULL,
+          project_id TEXT,
+          label TEXT NOT NULL,
+          type TEXT NOT NULL,
+          evidence_class TEXT,
+          stable_id TEXT NOT NULL,
+          version INTEGER DEFAULT 1,
+          status TEXT DEFAULT 'active',
+          data TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS knowledge_edges (
+          id TEXT PRIMARY KEY,
+          user_email TEXT NOT NULL,
+          source_id TEXT NOT NULL,
+          target_id TEXT NOT NULL,
+          relationship TEXT NOT NULL,
+          details TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS harness_runs (
+          id TEXT PRIMARY KEY,
+          user_email TEXT NOT NULL,
+          harness_type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          status TEXT NOT NULL,
+          ground_truth_passed INTEGER DEFAULT 0,
+          human_approved INTEGER DEFAULT 0,
+          deliverables TEXT,
+          dissent_log TEXT,
+          residual_risks TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS trade_studies (
+          id TEXT PRIMARY KEY,
+          user_email TEXT NOT NULL,
+          title TEXT NOT NULL,
+          problem_statement TEXT,
+          criteria TEXT,
+          candidates TEXT,
+          scoring_matrix TEXT,
+          selected_candidate_id TEXT,
+          dissent_records TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
       `);
     }
   }

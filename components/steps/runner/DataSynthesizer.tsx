@@ -51,7 +51,7 @@ export const DataSynthesizer = ({ onComplete, context }) => {
                     `;
             
             try {
-                const response = await callGeminiWithRetry('gemini-3.5-flash', { 
+                const response = await callGeminiWithRetry('gemini-3.8-flash', { 
                     contents: prompt,
                     config: { responseMimeType: "application/json" }
                 });

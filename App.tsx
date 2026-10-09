@@ -20,6 +20,11 @@ import { ProjectDocumentation } from './components/documentation/ProjectDocument
 import { AuthView } from './components/auth/AuthView';
 import { MifecoLanding } from './components/landing/MifecoLanding';
 import { GlobalDelayedTooltip } from './components/common/GlobalDelayedTooltip';
+import { HarnessOrchestrationView } from './components/harness/HarnessOrchestrationView';
+import { StructuredReasoningView } from './components/reasoning/StructuredReasoningView';
+import { KnowledgeGraphView } from './components/graph/KnowledgeGraphView';
+import { SpecializedAgentsView } from './components/governance/SpecializedAgentsView';
+import { EntitlementAuditView } from './components/audit/EntitlementAuditView';
 
 // --- MEMORY OPTIMIZATION HELPER ---
 // Strips heavy data (CSVs, long markdown) from the dashboard list to prevent
@@ -461,6 +466,11 @@ export const App = () => {
                         {view === 'experiment' && activeExperiment && <ExperimentWorkspace key={activeExperiment.id} />}
                         {view === 'documentation' && <ProjectDocumentation />}
                         {view === 'testing' && <TestRunner />}
+                        {view === 'harness' && <HarnessOrchestrationView onNavigateView={setView} />}
+                        {view === 'reasoning' && <StructuredReasoningView />}
+                        {view === 'graph' && <KnowledgeGraphView />}
+                        {view === 'governance' && <SpecializedAgentsView />}
+                        {view === 'entitlements-audit' && <EntitlementAuditView />}
                     </main>
                     {activeExperiment && (
                         <>

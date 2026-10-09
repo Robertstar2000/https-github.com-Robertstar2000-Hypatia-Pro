@@ -47,7 +47,7 @@ export const DeployModal = ({ experiment, onClose, onUpdateExperiment, onExportE
         try {
             const context = await getStepContext(experiment, step);
             const { basePrompt, config } = getPromptForStep(step, '', context, {});
-            const response = await callGeminiWithRetry('gemini-3-flash-preview', { contents: basePrompt, config });
+            const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: basePrompt, config });
             const newContent = safeGetText(response);
 
             if (isMounted.current) {

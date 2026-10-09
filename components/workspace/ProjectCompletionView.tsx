@@ -63,7 +63,7 @@ export const ProjectCompletionView = () => {
         try {
             const context = await getStepContext(activeExperiment, 13);
             const { basePrompt, config } = getPromptForStep(13, '', context, {});
-            const response = await callGeminiWithRetry('gemini-3.5-flash', { 
+            const response = await callGeminiWithRetry('gemini-3.8-flash', { 
                 contents: basePrompt, 
                 config 
             });

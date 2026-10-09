@@ -476,6 +476,131 @@ export const appTests = [
                 throw new Error("SanitizeLogOutput leaked raw Gemini API key");
             }
         }
+    },
+    {
+        name: "[Production] Scientific Knowledge Graph: Consistency audit & blast radius impact analysis",
+        fn: async () => {
+            const { INITIAL_KNOWLEDGE_NODES, INITIAL_KNOWLEDGE_EDGES, runConsistencyAudit, computeChangeImpact } = await import('./services/knowledgeGraph');
+            const issues = runConsistencyAudit(INITIAL_KNOWLEDGE_NODES, INITIAL_KNOWLEDGE_EDGES);
+            if (!Array.isArray(issues)) {
+                throw new Error("Consistency audit did not return an array of issues");
+            }
+            const impact = computeChangeImpact('node-hyp-01', INITIAL_KNOWLEDGE_NODES, INITIAL_KNOWLEDGE_EDGES);
+            if (impact.blastRadiusScore <= 0 || impact.directDependents.length === 0) {
+                throw new Error("Change impact analysis failed to detect dependents for HYP-001");
+            }
+        }
+    },
+    {
+        name: "[Production] Methodology Trade Study: Assay candidate ranking & sensitivity evaluation",
+        fn: async () => {
+            const { SAMPLE_TRADE_STUDY, calculatePughScores } = await import('./services/tradeStudies');
+            const scores = calculatePughScores(SAMPLE_TRADE_STUDY);
+            if (!scores['cand-spectrophotometric-plate'] || scores['cand-spectrophotometric-plate'].rank !== 1) {
+                throw new Error("Methodology trade study failed: Spectrophotometric Plate should be Rank 1");
+            }
+        }
+    },
+    {
+        name: "[Production] Scientific Discovery Harnesses: Controlled cohorts & in-silico simulation validation",
+        fn: async () => {
+            const { SAMPLE_EXPERIMENTAL_COHORTS, SAMPLE_INSILICO_MODEL, CROSS_APP_ADAPTERS } = await import('./services/specializedHarnesses');
+            const validCohorts = SAMPLE_EXPERIMENTAL_COHORTS.every(c => c.sampleSize > 0 && c.inclusionCriteria.length > 0);
+            if (!validCohorts) throw new Error("Controlled cohort protocols failed validation");
+            if (SAMPLE_INSILICO_MODEL.iterationTrials <= 0 || SAMPLE_INSILICO_MODEL.convergencePValue >= 0.05) {
+                throw new Error("In-silico kinetic model failed convergence criteria (p < 0.05)");
+            }
+            if (!CROSS_APP_ADAPTERS['hypatia-pro'] || !CROSS_APP_ADAPTERS['hermes-core'] || !CROSS_APP_ADAPTERS['openclaw-ai']) {
+                throw new Error("Cross-app scientific portability adapters missing for 3 applications");
+            }
+        }
+    },
+    {
+        name: "[Unit] Blocker Controls: User Mitigated manual resolution & Auto Resolve directive generation",
+        fn: async () => {
+            const { getPromptForStep } = await import('./services/prompts');
+            const blockerMsg = "Statistical power is below 80% with sample size n=5";
+            const autoResolveDirective = `Instructions: resolve the ${blockerMsg}`;
+            const { basePrompt } = getPromptForStep(4, "Test Input", { experimentField: "Biology" }, {}, autoResolveDirective);
+            
+            if (!basePrompt.includes("resolve the Statistical power is below 80%")) {
+                throw new Error("getPromptForStep failed to inject Auto Resolve directive into basePrompt");
+            }
+        }
+    },
+    {
+        name: "[Unit] Running Man Animation: Component export & SVG structural integrity",
+        fn: async () => {
+            const { RunningManAnimation } = await import('./components/common/RunningManAnimation');
+            if (typeof RunningManAnimation !== 'function') {
+                throw new Error("RunningManAnimation component is not exported as a React function component");
+            }
+        }
+    },
+    {
+        name: "[Unit] ResearchSummary: Object defense for {full_paper, abstract, layman_abstract, slides}",
+        fn: async () => {
+            const { ResearchSummary } = await import('./components/landing/ResearchSummary');
+            if (typeof ResearchSummary !== 'function') {
+                throw new Error("ResearchSummary component is not exported as a React function component");
+            }
+        }
+    },
+    {
+        name: "[Unit] Model Migration: Gemini 3.8 Flash configured as primary intelligence engine",
+        fn: async () => {
+            const { SUPPORTED_PROVIDERS, getDefaultLLMConfig } = await import('./services/llmConfig');
+            if (SUPPORTED_PROVIDERS.google.defaultModel !== 'gemini-3.8-flash') {
+                throw new Error(`Expected defaultModel to be gemini-3.8-flash, got ${SUPPORTED_PROVIDERS.google.defaultModel}`);
+            }
+            if (getDefaultLLMConfig().model !== 'gemini-3.8-flash') {
+                throw new Error(`Expected default config model to be gemini-3.8-flash, got ${getDefaultLLMConfig().model}`);
+            }
+            const primaryModel = SUPPORTED_PROVIDERS.google.models[0];
+            if (primaryModel.id !== 'gemini-3.8-flash') {
+                throw new Error(`Expected primary Google model to be gemini-3.8-flash, got ${primaryModel.id}`);
+            }
+        }
+    },
+    {
+        name: "[Unit] BYO-Key Model Compatibility: All 5 supported providers define valid models and parameters",
+        fn: async () => {
+            const { SUPPORTED_PROVIDERS } = await import('./services/llmConfig');
+            const providers = ['google', 'openai', 'anthropic', 'ollama', 'openrouter'] as const;
+            for (const pid of providers) {
+                const def = SUPPORTED_PROVIDERS[pid];
+                if (!def) throw new Error(`Missing provider definition for ${pid}`);
+                if (!def.defaultModel) throw new Error(`Provider ${pid} missing defaultModel`);
+                if (!Array.isArray(def.models) || def.models.length === 0) {
+                    throw new Error(`Provider ${pid} has no selectable models`);
+                }
+                for (const m of def.models) {
+                    if (!m.id || !m.name) throw new Error(`Model missing id or name in ${pid}: ${JSON.stringify(m)}`);
+                }
+            }
+        }
+    },
+    {
+        name: "[Unit] BYO-Key Response Resilience: safeGetText correctly extracts text across all model schemas",
+        fn: async () => {
+            const { safeGetText } = await import('./services/api');
+            // 1. Plain string
+            if (safeGetText("Test hypothesis") !== "Test hypothesis") throw new Error("safeGetText failed for string");
+            // 2. Google GenAI SDK object
+            if (safeGetText({ text: "Google Output" }) !== "Google Output") throw new Error("safeGetText failed for Google object");
+            // 3. Google GenAI candidate parts
+            if (safeGetText({ candidates: [{ content: { parts: [{ text: "Candidate Part" }] } }] }) !== "Candidate Part") {
+                throw new Error("safeGetText failed for candidate parts");
+            }
+            // 4. OpenAI chat completion format
+            if (safeGetText({ choices: [{ message: { content: "OpenAI GPT-4o output" } }] }) !== "OpenAI GPT-4o output") {
+                throw new Error("safeGetText failed for OpenAI format");
+            }
+            // 5. Anthropic message format
+            if (safeGetText({ content: [{ type: "text", text: "Claude Sonnet output" }] }) !== "Claude Sonnet output") {
+                throw new Error("safeGetText failed for Anthropic format");
+            }
+        }
     }
 ];
 

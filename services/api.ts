@@ -97,7 +97,7 @@ export const getKeyStatus = () => {
     };
 };
 
-export const testApiKey = async (key: string, provider: string = 'google'): Promise<boolean> => {
+export const testApiKey = async (key: string, provider: string = 'google', model?: string): Promise<boolean> => {
     try {
         const resp = await fetch('/api/llm/test', {
             method: 'POST',
@@ -106,6 +106,7 @@ export const testApiKey = async (key: string, provider: string = 'google'): Prom
                 provider,
                 authType: 'key',
                 apiKey: key,
+                model
             })
         });
         const data = await resp.json();
@@ -115,7 +116,7 @@ export const testApiKey = async (key: string, provider: string = 'google'): Prom
             try {
                 const ai = new GoogleGenAI({ apiKey: key });
                 await ai.models.generateContent({
-                     model: 'gemini-3.8-flash',
+                     model: model || 'gemini-3.8-flash',
                      contents: 'Ping.',
                 });
                 return true;
@@ -123,7 +124,7 @@ export const testApiKey = async (key: string, provider: string = 'google'): Prom
                 try {
                     const ai = new GoogleGenAI({ apiKey: key });
                     await ai.models.generateContent({
-                         model: 'gemini-3.5-flash',
+                         model: 'gemini-3.1-flash-lite',
                          contents: 'Ping.',
                     });
                     return true;
@@ -184,8 +185,9 @@ const callGeminiWithTimeout = async (geminiCall: Promise<any>, timeout: number =
 };
 
 const FALLBACK_MODELS = [
-    'gemini-3.5-flash',
-    'gemini-3.1-flash-lite'
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-3.1-pro-preview'
 ];
 
 /**
@@ -241,7 +243,8 @@ export const callGeminiWithRetry = async (
                     systemInstruction: params.config?.systemInstruction,
                     temperature: params.config?.temperature ?? 0.7,
                     maxTokens: params.config?.maxOutputTokens ?? 8192,
-                    responseMimeType: params.config?.responseMimeType
+                    responseMimeType: params.config?.responseMimeType,
+                    responseSchema: params.config?.responseSchema
                 })
             });
 
@@ -365,6 +368,31 @@ export const callGeminiStreamWithRetry = async (
 ) => {
     const { maxRetries = 5, onStatusUpdate, timeout = 900000 } = options;
 
+    const llmConfig = getStoredLLMConfig();
+    const activeProvider = llmConfig.provider;
+
+    // Universal stream compatibility for non-Google providers & OAuth
+    if (activeProvider !== 'google' || llmConfig.authType === 'oauth') {
+        const response = await callGeminiWithRetry(modelName, params, options);
+        const fullText = safeGetText(response);
+        async function* simulatedStream() {
+            const chunkSize = 25;
+            for (let i = 0; i < fullText.length; i += chunkSize) {
+                const chunk = fullText.slice(i, i + chunkSize);
+                yield {
+                    text: chunk,
+                    candidates: [{ content: { parts: [{ text: chunk }] } }]
+                };
+                await new Promise(r => setTimeout(r, 15));
+            }
+        }
+        return simulatedStream();
+    }
+
+    const targetModel = (llmConfig.provider === 'google' && (llmConfig.customModel || llmConfig.model))
+        ? (llmConfig.customModel || llmConfig.model)
+        : (modelName || 'gemini-3.8-flash');
+
     let attempts = 0;
     while (true) {
         try {
@@ -374,7 +402,7 @@ export const callGeminiStreamWithRetry = async (
             const ai = new GoogleGenAI({ apiKey });
 
             const stream = await callGeminiWithTimeout(ai.models.generateContentStream({
-                model: modelName,
+                model: targetModel,
                 ...params
             }), timeout);
             return stream;
@@ -604,6 +632,19 @@ export const isValidJsonForSchema = (jsonString: string, schema: any): boolean =
 
 export const safeGetText = (response: any): string => {
     try {
+        if (!response) return "";
+        if (typeof response === 'string') return response;
+        if (typeof response.text === 'function') return response.text();
+        if (typeof response.text === 'string') return response.text;
+        if (response.candidates?.[0]?.content?.parts) {
+            return response.candidates[0].content.parts.map((p: any) => p.text || '').join('');
+        }
+        if (response.choices?.[0]?.message?.content) {
+            return response.choices[0].message.content;
+        }
+        if (response.content && Array.isArray(response.content)) {
+            return response.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
+        }
         return response.text || "";
     } catch (e) {
         console.error("Failed to extract text from response:", e);
@@ -635,7 +676,7 @@ export const generateNodeSummary = async (content: string, field: string): Promi
     if (!content || content.length < 50) return content;
     const prompt = `As a Research Archivist in ${field}, compress the following content into a concise, high-density summary (max 3 sentences). Preserve key variables and findings.\n\nCONTENT:\n${content.substring(0, 15000)}...`;
     try {
-        const response = await callGeminiWithRetry('gemini-3.1-flash-lite', { contents: prompt });
+        const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
         return safeGetText(response) || content.substring(0, 200) + "...";
     } catch (e) {
         return content.substring(0, 200) + "...";

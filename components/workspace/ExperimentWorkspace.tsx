@@ -14,7 +14,7 @@ import {
     tryRepairJson,
     syncCitationsFromExperiment
 } from '../../services';
-import { WORKFLOW_STEPS, RESEARCH_QUESTION_SCHEMA, DATA_ANALYSIS_IMAGE_OUTPUT_SCHEMA, LITERATURE_REVIEW_SCHEMA, HYPOTHESIS_TREE_SCHEMA } from '../../config';
+import { WORKFLOW_STEPS, RESEARCH_QUESTION_SCHEMA, DATA_ANALYSIS_IMAGE_OUTPUT_SCHEMA, LITERATURE_REVIEW_SCHEMA, HYPOTHESIS_TREE_SCHEMA, Blocker } from '../../config';
 
 import { DataEntryWorkspace } from '../steps/DataEntryWorkspace';
 import { ExperimentRunner } from '../steps/runner/ExperimentRunner';
@@ -22,6 +22,7 @@ import { DataAnalysisWorkspace } from '../steps/DataAnalysisWorkspace';
 import { PublicationExporter } from '../steps/PublicationExporter';
 import { EditableStepInput } from '../steps/EditableStepInput';
 import { GeneratedOutput } from '../common/GeneratedOutput';
+import { RunningManAnimation } from '../common/RunningManAnimation';
 import { ProjectCompletionView } from './ProjectCompletionView';
 import { AutomationModeSelector } from './AutomationModeSelector';
 import { FineTuneModal } from './FineTuneModal';
@@ -176,6 +177,8 @@ export const ExperimentWorkspace = () => {
         autoRetryAttempts.current[stepId] = 0;
     }, [isLoading, isVerifying, isMobile]);
 
+    const [isAutoResolving, setIsAutoResolving] = useState(false);
+
     const handleResolveBlocker = async (blockerId: string) => {
         if (!activeExperiment) return;
         const stepData = { ...(activeExperiment.stepData || {}) };
@@ -185,7 +188,37 @@ export const ExperimentWorkspace = () => {
         );
         stepData[activeStep] = { ...currentStepData, blockers };
         await updateExperiment({ ...activeExperiment, stepData });
-        addToast("Blocker mitigation logged.", "success");
+        addToast("Blocker mitigation logged by user.", "success");
+    };
+
+    const handleAutoResolveBlocker = async (blocker: Blocker) => {
+        if (!activeExperiment || isLoading || isVerifying || isAutoResolving) return;
+
+        setIsAutoResolving(true);
+        setAutomationPaused(false);
+        addToast(`Auto-resolving blocker: re-running Step ${activeStep}...`, "info");
+
+        const blockerDirective = `resolve the ${blocker.msg}`;
+
+        try {
+            // Mark blocker as resolved in experiment state
+            const stepData = { ...(activeExperiment.stepData || {}) };
+            const currentStepData = { ...(stepData[activeStep] || {}) };
+            const blockers = (currentStepData.blockers || []).map(b => 
+                b.id === blocker.id ? { ...b, resolved: true } : b
+            );
+            stepData[activeStep] = { ...currentStepData, blockers };
+            await updateExperiment({ ...activeExperiment, stepData });
+
+            // Re-run the phase/step inserting instructions to: resolve the <insert blocker description> into the step/phase prompting
+            await handleGenerate(`Instructions: ${blockerDirective}`);
+            addToast(`Step ${activeStep} re-executed with instructions to ${blockerDirective}.`, "success");
+        } catch (err: any) {
+            console.error("Auto resolve error:", err);
+            addToast("Failed to auto-resolve blocker.", "danger");
+        } finally {
+            setIsAutoResolving(false);
+        }
     };
 
     const handleAnalysisFailure = useCallback(async (errorMsg: string) => {
@@ -243,7 +276,7 @@ export const ExperimentWorkspace = () => {
                 else if (activeStep === 3) schema = HYPOTHESIS_TREE_SCHEMA;
                 else schema = DATA_ANALYSIS_IMAGE_OUTPUT_SCHEMA;
 
-                const model = (activeStep === 1 || activeStep === 3) ? 'gemini-3.5-flash' : 'gemini-3.1-flash-lite';
+                const model = 'gemini-3.8-flash';
                 
                 const output = await executeStepWorkflow(model, { contents: basePrompt, config }, context, true, schema);
                 
@@ -255,7 +288,7 @@ export const ExperimentWorkspace = () => {
                 }
             } else if (streamingEnabled) {
                 const stream = await callGeminiStreamWithRetry(
-                    'gemini-3.1-flash-lite', 
+                    'gemini-3.8-flash', 
                     { contents: basePrompt, config },
                     apiOptions
                 );
@@ -278,7 +311,7 @@ export const ExperimentWorkspace = () => {
                 }
             } else {
                 const response = await callGeminiWithRetry(
-                    'gemini-3.1-flash-lite', 
+                    'gemini-3.8-flash', 
                     { contents: basePrompt, config },
                     apiOptions
                 );
@@ -469,6 +502,39 @@ export const ExperimentWorkspace = () => {
 
     const cachedContext = compressExperimentContext(activeExperiment, activeStep);
 
+    const handleDownloadProject = () => {
+        if (!activeExperiment) return;
+        try {
+            const projectExport = {
+                version: '2.5.0',
+                exportedAt: new Date().toISOString(),
+                experiment: activeExperiment
+            };
+            const jsonString = JSON.stringify(projectExport, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const safeTitle = (activeExperiment.title || 'untitled_project')
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]/g, '_')
+                .replace(/_+/g, '_')
+                .slice(0, 40);
+            const fileName = `hypatia_project_${safeTitle}_${activeExperiment.id?.slice(-6) || Date.now()}.json`;
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            addToast(`Project "${activeExperiment.title || 'Untitled'}" downloaded successfully as JSON.`, 'success');
+        } catch (error: any) {
+            console.error('Download project failed:', error);
+            addToast('Failed to download project JSON file.', 'danger');
+        }
+    };
+
     return (
         <div className="workspace-container d-flex flex-column gap-3 py-3 w-100">
             {/* Horizontal Timeline at the Top of Steps Page */}
@@ -496,6 +562,15 @@ export const ExperimentWorkspace = () => {
                             title="Replicability & Robustness Scorecard & OSF Preregistration"
                         >
                             <i className="bi bi-shield-check me-1 text-success"></i> Replicability Audit
+                        </button>
+                        <button 
+                            className="btn btn-xs rounded-pill btn-outline-info text-white d-flex align-items-center gap-1"
+                            onClick={handleDownloadProject}
+                            title="Download complete experiment data as JSON file for offline backup and local saving"
+                            data-tooltip="Downloads current experiment data and all step outputs as a JSON file"
+                        >
+                            <i className="bi bi-download text-info"></i>
+                            <span>Download Project</span>
                         </button>
                     </div>
 
@@ -545,7 +620,7 @@ export const ExperimentWorkspace = () => {
                                     }}
                                     data-tooltip={`Step ${step.id}: ${step.title} - Select node to inspect or review outputs`}
                                 >
-                                    <div className="rounded-circle d-flex align-items-center justify-content-center text-center font-mono"
+                                    <div className="rounded-circle d-flex align-items-center justify-content-center text-center font-mono overflow-hidden"
                                          style={{ 
                                              width: '24px', 
                                              height: '24px', 
@@ -555,7 +630,9 @@ export const ExperimentWorkspace = () => {
                                              border: isActive ? 'none' : '1px solid rgba(255,255,255,0.1)'
                                          }}
                                     >
-                                        {isCompleted ? (
+                                        {isActive && (isLoading || isVerifying) ? (
+                                            <RunningManAnimation size="xs" color="#000" showTrack={false} />
+                                        ) : isCompleted ? (
                                             <i className="bi bi-check" style={{ fontSize: '1rem', strokeWidth: '3' }}></i>
                                         ) : (
                                             step.id
@@ -565,7 +642,10 @@ export const ExperimentWorkspace = () => {
                                         {step.title}
                                     </span>
                                     {isActive && (isLoading || isVerifying) && (
-                                        <div className="spinner-border spinner-border-sm text-primary-glow ms-1" style={{ width: '10px', height: '10px' }} role="status"></div>
+                                        <div className="d-inline-flex align-items-center gap-1 ms-1">
+                                            <RunningManAnimation size="xs" color="var(--primary-glow)" inline showTrack={false} />
+                                            <span className="spinner-border spinner-border-sm text-primary-glow" style={{ width: '8px', height: '8px' }} role="status"></span>
+                                        </div>
                                     )}
                                 </div>
                             );
@@ -589,6 +669,12 @@ export const ExperimentWorkspace = () => {
                                     <div className="badge bg-primary bg-opacity-10 text-primary-glow font-mono mb-0">
                                         {activeStep <= WORKFLOW_STEPS.length ? `STEP ${activeStep < 10 ? `0${activeStep}` : activeStep}` : 'SYNTHESIS DOSSIER'}
                                     </div>
+                                    {(isLoading || isVerifying) && (
+                                        <span className="badge bg-info bg-opacity-15 text-info border border-info border-opacity-30 d-inline-flex align-items-center gap-1.5 px-2.5 py-1 font-mono">
+                                            <RunningManAnimation size="xs" color="#38bdf8" showTrack={false} />
+                                            <span>Phase Running</span>
+                                        </span>
+                                    )}
                                     {(activeExperiment.updatedAt || activeExperiment.createdAt) && (
                                         <div className="d-flex align-items-center gap-1 text-white-50" style={{ fontSize: '0.75rem' }} id="auto-save-status">
                                             <span className="d-inline-block bg-success rounded-circle" style={{ width: '6px', height: '6px', opacity: 0.8 }}></span>
@@ -679,16 +765,18 @@ export const ExperimentWorkspace = () => {
                                         return (
                                             <div key={idx} className="d-flex flex-column align-items-center" style={{ width: '80px' }}>
                                                 <div 
-                                                    className={`rounded-circle border d-flex align-items-center justify-content-center ${circleClass}`}
+                                                    className={`rounded-circle border d-flex align-items-center justify-content-center overflow-hidden ${circleClass}`}
                                                     style={circleStyle}
                                                     onClick={() => {
                                                         if (!isPhaseLocked && !isLoading && !isVerifying) {
-                                                            handleStepChange(phase.steps[0]);
+                                                             handleStepChange(phase.steps[0]);
                                                         }
                                                     }}
                                                     title={`Go to ${phase.name}`}
                                                 >
-                                                    {isPhaseCompleted ? (
+                                                    {isPhaseActive && (isLoading || isVerifying) ? (
+                                                        <RunningManAnimation size="xs" color="#000" showTrack={false} />
+                                                    ) : isPhaseCompleted ? (
                                                         <i className="bi bi-check-lg" style={{ fontSize: '1.2rem', strokeWidth: '2.5' }}></i>
                                                     ) : (
                                                         <i className={`bi ${phase.icon}`} style={{ fontSize: '1rem' }}></i>
@@ -710,7 +798,33 @@ export const ExperimentWorkspace = () => {
                             <BlockerDisplay 
                                 blockers={currentStepData.blockers} 
                                 onResolve={handleResolveBlocker} 
+                                onAutoResolve={handleAutoResolveBlocker}
+                                isAutoResolving={isAutoResolving}
                             />
+                        )}
+
+                        {/* Running Man Animation starting when step/phase starts and ending when artifact(s) is rendered */}
+                        {(isLoading || isVerifying) && (
+                            <div className="card border-primary border-opacity-30 bg-black bg-opacity-40 p-3 mb-4 shadow-sm animate-pulse">
+                                <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                                    <div className="d-flex align-items-center gap-3">
+                                        <RunningManAnimation 
+                                            size="md" 
+                                            color="var(--primary-glow)"
+                                            label={`Phase/Step ${activeStep}: ${WORKFLOW_STEPS[activeStep - 1]?.title || 'Research Stage'} In Progress`}
+                                            sublabel={statusMessage || "AI Agents executing scientific synthesis & empirical verification..."}
+                                        />
+                                    </div>
+                                    <div className="d-flex align-items-center gap-2">
+                                        <span className="badge bg-primary bg-opacity-20 text-primary-glow font-mono small border border-primary border-opacity-25 px-2.5 py-1">
+                                            <i className="bi bi-cpu me-1"></i> Running Pipeline
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="progress mt-2.5 bg-dark" style={{ height: '3px' }}>
+                                    <div className="progress-bar progress-bar-striped progress-bar-animated bg-primary-glow w-100"></div>
+                                </div>
+                            </div>
                         )}
 
                         {renderStepContent()}
@@ -718,13 +832,24 @@ export const ExperimentWorkspace = () => {
                     
                     {activeStep <= WORKFLOW_STEPS.length && (
                         <div className="card-footer d-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-dark bg-opacity-25 border-top border-secondary border-opacity-10 gap-3">
-                            <button 
-                                className="btn btn-sm btn-outline-secondary w-100 w-md-auto" 
-                                onClick={() => setFineTuneModalOpen(true)}
-                                data-tooltip="Configure custom tuning parameters and prompt generation controls for this step"
-                            >
-                                <i className="bi bi-sliders me-1"></i> Tuning
-                            </button>
+                            <div className="d-flex align-items-center gap-2 w-100 w-md-auto">
+                                <button 
+                                    className="btn btn-sm btn-outline-secondary" 
+                                    onClick={() => setFineTuneModalOpen(true)}
+                                    data-tooltip="Configure custom tuning parameters and prompt generation controls for this step"
+                                >
+                                    <i className="bi bi-sliders me-1"></i> Tuning
+                                </button>
+                                <button 
+                                    className="btn btn-sm btn-outline-info text-white d-flex align-items-center gap-1.5" 
+                                    onClick={handleDownloadProject}
+                                    data-tooltip="Exports current experiment data as a JSON file, allowing users to save their work locally"
+                                    title="Download Project JSON"
+                                >
+                                    <i className="bi bi-download text-info"></i>
+                                    <span>Download Project</span>
+                                </button>
+                            </div>
                             <button 
                                 className={`btn btn-${hasCriticalBlocker ? 'outline-danger' : 'success'} px-4 shadow-sm w-100 w-md-auto`} 
                                 onClick={() => handleCompleteStep()} 

@@ -51,9 +51,8 @@ export const SUPPORTED_PROVIDERS: Record<LLMProviderId, ProviderDefinition> = {
         supportsCustomModel: true,
         models: [
             { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', description: 'Recommended: Latest generation high-speed multimodal reasoning engine.', badge: 'Latest & Recommended', contextWindow: '1M tokens' },
-            { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', description: 'High-speed stable model for hypothesis generation and simulation.', badge: 'Fast & Stable', contextWindow: '1M tokens' },
+            { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro', description: 'Deep analytical reasoning for statistical rigor and mathematical synthesis.', badge: 'Complex STEM', contextWindow: '2M tokens' },
             { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', description: 'Ultra-lightweight low-latency model for pre-summarization and quick filtering.', badge: 'Lightweight', contextWindow: '1M tokens' },
-            { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Deep analytical reasoning for statistical rigor and mathematical synthesis.', badge: 'Complex Logic', contextWindow: '2M tokens' },
         ]
     },
     openai: {
@@ -193,15 +192,21 @@ export const getDefaultLLMConfig = (): LLMConfig => {
 export const getStoredLLMConfig = (): LLMConfig => {
     if (typeof window === 'undefined') return getDefaultLLMConfig();
     try {
+        const legacyKey = localStorage.getItem(LEGACY_GEMINI_KEY);
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
             // Sanitize provider
             if (parsed.provider && SUPPORTED_PROVIDERS[parsed.provider as LLMProviderId]) {
-                return {
+                const conf: LLMConfig = {
                     ...getDefaultLLMConfig(),
                     ...parsed,
                 };
+                if (conf.provider === 'google' && !conf.apiKey && legacyKey) {
+                    conf.apiKey = legacyKey;
+                    conf.isVerified = true;
+                }
+                return conf;
             }
         }
     } catch (e) {

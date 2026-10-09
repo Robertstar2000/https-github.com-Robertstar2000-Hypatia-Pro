@@ -74,6 +74,46 @@ export const AppMenuModal: React.FC<AppMenuModalProps> = ({ onClose, setView, ac
             visible: true
         },
         {
+            id: 'harness',
+            label: 'Scientific Discovery Harnesses',
+            icon: 'bi-flask-fill',
+            description: 'Hypothesis ⇄ Protocol Design ⇄ In-Silico Simulations ⇄ Synthesis',
+            action: () => handleNavigate('harness'),
+            visible: true
+        },
+        {
+            id: 'reasoning',
+            label: 'Hypothesis & Reasoning Studio',
+            icon: 'bi-lightbulb-fill',
+            description: 'Competing Hypotheses, Methodology Trade Studies, Tree of Thoughts',
+            action: () => handleNavigate('reasoning'),
+            visible: true
+        },
+        {
+            id: 'graph',
+            label: 'Scientific Knowledge Graph',
+            icon: 'bi-share-fill',
+            description: 'Living memory, empirical evidence links, confounders & blast radius',
+            action: () => handleNavigate('graph'),
+            visible: true
+        },
+        {
+            id: 'governance',
+            label: 'Scientific Specialists & Governance',
+            icon: 'bi-people-fill',
+            description: 'Ideation, protocol, in-silico modeling & biostatistician roles',
+            action: () => handleNavigate('governance'),
+            visible: true
+        },
+        {
+            id: 'entitlements-audit',
+            label: 'System & Entitlement Audit',
+            icon: 'bi-shield-lock-fill',
+            description: '15-test authorization matrix for Hypatia, Hermes & OpenClaw',
+            action: () => handleNavigate('entitlements-audit'),
+            visible: true
+        },
+        {
             id: 'documentation',
             label: 'Artifacts & Docs',
             icon: 'bi-folder2-open',

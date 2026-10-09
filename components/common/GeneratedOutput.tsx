@@ -11,6 +11,7 @@ import { VoiceDictationButton } from './VoiceDictationButton';
 import { MultiAgentAdvisoryCouncil } from './MultiAgentAdvisoryCouncil';
 import { MethodologyFlowchartBuilder } from './MethodologyFlowchartBuilder';
 import { MonteCarloSimulator } from './MonteCarloSimulator';
+import { RunningManAnimation } from './RunningManAnimation';
 
 interface GeneratedOutputProps {
     stepId: number;
@@ -148,14 +149,13 @@ export const GeneratedOutput: React.FC<GeneratedOutputProps> = ({
         <div className="generated-content-container">
             {isLoading && (
                 <div className="archive-status-line mb-4 px-3 py-3 rounded d-flex flex-column gap-2 border border-primary border-opacity-25 bg-primary bg-opacity-5">
-                    <div className="d-flex align-items-center justify-content-between">
-                         <div className="d-flex align-items-center">
-                              <div className="spinner-border spinner-border-sm text-primary-glow me-2" role="status"></div>
-                              <span className="small text-uppercase fw-bold ls-1 text-primary-glow">
-                                {statusMessage || "Processing..."}
-                              </span>
-                         </div>
-                         <div className="spinner-grow spinner-grow-sm text-primary-glow opacity-50" role="status"></div>
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                         <RunningManAnimation 
+                             size="md" 
+                             label={statusMessage || `Synthesizing Step ${stepId} Artifact...`}
+                             sublabel="AI Agent running theoretical and empirical synthesis"
+                         />
+                         <div className="spinner-border spinner-border-sm text-primary-glow" role="status"></div>
                     </div>
                     <div className="progress bg-dark" style={{height: '2px'}}>
                          <div className="progress-bar progress-bar-striped progress-bar-animated bg-primary-glow w-100"></div>

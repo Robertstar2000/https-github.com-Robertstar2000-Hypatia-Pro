@@ -46,7 +46,7 @@ TASK: Return the FULL UPDATED text document with ONLY the requested section upda
 Maintain the exact formatting, structure, and Markdown style. Do NOT add extra conversational commentary.`;
 
         try {
-            const response = await callGeminiWithRetry('gemini-3.5-flash', { contents: prompt });
+            const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
             const text = safeGetText(response);
             if (text) {
                 setPreviewText(text.trim());

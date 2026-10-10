@@ -305,10 +305,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                             <div>
                                 <div className="d-flex align-items-center gap-2 flex-wrap">
                                     <span className="fw-bold text-white small font-mono">
-                                        AI ENGINE: {keyStatus.providerName || 'Google Gemini'}
-                                    </span>
-                                    <span className="badge bg-dark border border-secondary border-opacity-25 text-white-50 font-mono small">
-                                        {keyStatus.model || 'gemini-3.8-flash'}
+                                        RESEARCH INTELLIGENCE ENGINE
                                     </span>
                                     {keyStatus.isOAuth ? (
                                         <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 small">
@@ -329,7 +326,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                     )}
                                 </div>
                                 <div className="text-white-50 small mt-0.5" style={{ fontSize: '0.78rem' }}>
-                                    Google Gemini, OpenAI, Anthropic, Ollama, and OpenRouter supported with custom keys or OAuth subscriptions.
+                                    Multi-model autonomous reasoning with custom keys or OAuth subscriptions.
                                 </div>
                             </div>
                         </div>

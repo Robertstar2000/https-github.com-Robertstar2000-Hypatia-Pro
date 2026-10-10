@@ -39,10 +39,10 @@ export const Header = ({ setView, activeView, onToggleNotebook, onToggleCitation
                         >
                             <i className="bi bi-key-fill text-primary-glow"></i>
                             <span className="d-none d-sm-inline font-mono">
-                                {keyStatus.providerName || 'LLM'}: {keyStatus.model || 'Model'}
+                                {keyStatus.type === 'manual' || keyStatus.isOAuth ? 'Custom LLM Key' : 'LLM Provider'}
                             </span>
                             <span className="d-inline d-sm-none font-mono">
-                                {keyStatus.providerName?.split(' ')[0] || 'LLM'}
+                                LLM
                             </span>
                             <span className={`badge rounded-pill ${keyStatus.color || 'bg-success'} p-1`} style={{ width: '8px', height: '8px' }}></span>
                         </button>

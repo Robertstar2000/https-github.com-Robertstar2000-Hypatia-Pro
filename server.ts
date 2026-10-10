@@ -30,9 +30,14 @@ let simulatedFailureDependency: string | null = null;
 async function startServer() {
   const app = express();
   
-  // Production Cloud Run binding
-  const PORT = Number(process.env.PORT) || 3000;
-  const HOST = '0.0.0.0';
+  // Production Cloud Run binding & CLI arguments support
+  const portArgIndex = process.argv.indexOf('--port');
+  const cliPort = portArgIndex !== -1 && process.argv[portArgIndex + 1] ? Number(process.argv[portArgIndex + 1]) : null;
+  const PORT = Number(process.env.PORT) || cliPort || 3000;
+
+  const hostArgIndex = process.argv.indexOf('--host');
+  const cliHost = hostArgIndex !== -1 && process.argv[hostArgIndex + 1] ? process.argv[hostArgIndex + 1] : null;
+  const HOST = process.env.HOST || cliHost || '0.0.0.0';
   const NODE_ENV = process.env.NODE_ENV || 'development';
 
   console.log(`[Hypatia Pro] Starting server in ${NODE_ENV} mode binding to ${HOST}:${PORT}...`);
@@ -228,7 +233,7 @@ async function startServer() {
   });
 
   app.post('/api/auth/login', async (req: any, res) => {
-    const { emailOrUsername, password } = req.body;
+    const { emailOrUsername, password, geminiKey } = req.body;
     if (!emailOrUsername || !password) {
       return res.status(400).json({ error: 'Email/username and password are required' });
     }
@@ -244,6 +249,15 @@ async function startServer() {
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         return res.status(401).json({ error: 'Invalid credentials' });
+      }
+
+      if (geminiKey && typeof geminiKey === 'string' && geminiKey.trim()) {
+        try {
+          db.prepare('UPDATE users SET geminiKey = ? WHERE id = ?').run(geminiKey.trim(), user.id);
+          user.geminiKey = geminiKey.trim();
+        } catch (e) {
+          // ignore
+        }
       }
 
       const userPayload = { 
@@ -1300,7 +1314,7 @@ async function startServer() {
 
     try {
       if (provider === 'google') {
-        const key = apiKey || secrets.geminiApiKey;
+        const key = apiKey || secrets.geminiApiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
         if (!key) {
           return res.status(400).json({ error: 'No Gemini API Key available. Provide an API key or ensure server Secret Manager is bound.' });
         }
@@ -1321,11 +1335,28 @@ async function startServer() {
           config.systemInstruction = systemInstruction;
         }
 
-        const response = await ai.models.generateContent({
-          model: targetModel,
-          contents: prompt,
-          config,
-        });
+        let response: any;
+        try {
+          response = await ai.models.generateContent({
+            model: targetModel,
+            contents: prompt,
+            config,
+          });
+        } catch (genErr: any) {
+          // If model rejected responseSchema (e.g., custom model or unsupported architecture), retry with schema in prompt
+          if (responseSchema && (genErr.message?.includes('schema') || genErr.message?.includes('400') || genErr.message?.includes('INVALID_ARGUMENT'))) {
+            const fallbackPrompt = `${prompt}\n\nREQUIRED JSON SCHEMA:\n${JSON.stringify(responseSchema, null, 2)}\nOutput strictly valid JSON complying with this schema. Do not output markdown code blocks.`;
+            const strippedConfig = { ...config };
+            delete strippedConfig.responseSchema;
+            response = await ai.models.generateContent({
+              model: targetModel,
+              contents: fallbackPrompt,
+              config: strippedConfig,
+            });
+          } else {
+            throw genErr;
+          }
+        }
 
         const text = response.text || '';
         return res.json({ text, provider: 'google', model: targetModel, raw: response });
@@ -1552,6 +1583,24 @@ async function startServer() {
   server.timeout = 900000; // 15 minutes for intensive scientific AI calls
   server.keepAliveTimeout = 65000;
   server.headersTimeout = 66000;
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[Hypatia Pro] Port ${PORT} already in use. Ensure prior instance has stopped.`);
+    } else {
+      console.error('[Hypatia Pro] Server encountered an error:', err);
+    }
+  });
+
+  const shutdown = () => {
+    console.log('[Hypatia Pro] Graceful shutdown initiated...');
+    server.close(() => {
+      console.log('[Hypatia Pro] Server closed.');
+      process.exit(0);
+    });
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 startServer().catch(err => {

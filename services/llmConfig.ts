@@ -1,8 +1,8 @@
-// LLM Provider Configuration & Management Service for Project Hypatia
-
-export type LLMProviderId = 'google' | 'openai' | 'anthropic' | 'ollama' | 'openrouter';
+export type LLMProviderId = 'google' | 'openai' | 'anthropic' | 'grok' | 'ollama' | 'openrouter';
 
 export type AuthMode = 'key' | 'oauth';
+
+export const MODEL_CAPABILITY_NOTICE = "The chosen LLM model must possess high-level reasoning capabilities, deep scientific and technical domain knowledge, and be able to generate images, figures, tabular datasets, and technical drawings for the 10-phase discovery protocol.";
 
 export interface ProviderModelInfo {
     id: string;
@@ -51,8 +51,32 @@ export const SUPPORTED_PROVIDERS: Record<LLMProviderId, ProviderDefinition> = {
         supportsCustomModel: true,
         models: [
             { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', description: 'Recommended: Latest generation high-speed multimodal reasoning engine.', badge: 'Latest & Recommended', contextWindow: '1M tokens' },
-            { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro', description: 'Deep analytical reasoning for statistical rigor and mathematical synthesis.', badge: 'Complex STEM', contextWindow: '2M tokens' },
-            { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', description: 'Ultra-lightweight low-latency model for pre-summarization and quick filtering.', badge: 'Lightweight', contextWindow: '1M tokens' },
+            { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro', description: 'Deep analytical reasoning for statistical rigor, mathematical synthesis, and technical diagrams.', badge: 'Complex STEM', contextWindow: '2M tokens' },
+            { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', description: 'Ultra-lightweight low-latency model for pre-summarization, quick filtering, and tabular audits.', badge: 'Lightweight', contextWindow: '1M tokens' },
+            { id: 'gemini-3-pro-image', name: 'Gemini 3 Pro Image', description: 'Multimodal generation for scientific figures, technical drawings, laboratory schematics, and plots.', badge: 'Figures & Images', contextWindow: '64k tokens' },
+        ]
+    },
+    grok: {
+        id: 'grok',
+        name: 'xAI Grok',
+        company: 'xAI',
+        icon: 'bi-rocket-takeoff-fill',
+        logoColor: '#F59E0B',
+        authDescription: 'Connect via xAI API key or sign in with your X Premium / SuperGrok subscription.',
+        keyPlaceholder: 'xai-...',
+        keyPrefixHelp: 'Keys typically start with xai-...',
+        keyHelpUrl: 'https://console.x.ai/',
+        keyHelpLabel: 'Get API Key from xAI Console',
+        oauthSupported: true,
+        oauthProviderName: 'xAI / SuperGrok Subscription',
+        oauthScopeDesc: 'Authenticate via xAI Single Sign-On (SSO) to connect your Grok plan.',
+        defaultModel: 'grok-3',
+        supportsCustomModel: true,
+        models: [
+            { id: 'grok-3', name: 'Grok 3', description: 'Flagship reasoning model with frontier STEM logic, mathematical proofs, and scientific code synthesis.', badge: 'Flagship Reasoning', contextWindow: '128k tokens' },
+            { id: 'grok-3-mini', name: 'Grok 3 Mini', description: 'High-speed reasoning model with deep mathematical and scientific thinking for rapid iterations.', badge: 'Fast STEM', contextWindow: '128k tokens' },
+            { id: 'grok-2-vision-1212', name: 'Grok 2 Vision', description: 'Multimodal scientific reasoning supporting technical diagrams, figures, charts, and visual tables.', badge: 'Multimodal & Vision', contextWindow: '32k tokens' },
+            { id: 'grok-2-1212', name: 'Grok 2', description: 'Advanced language model with strong technical comprehension and manuscript drafting.', badge: 'Comprehensive', contextWindow: '128k tokens' },
         ]
     },
     openai: {
@@ -72,11 +96,11 @@ export const SUPPORTED_PROVIDERS: Record<LLMProviderId, ProviderDefinition> = {
         defaultModel: 'gpt-4o',
         supportsCustomModel: true,
         models: [
-            { id: 'gpt-4o', name: 'GPT-4o (Omni)', description: 'Flagship model for high-speed scientific reasoning and data parsing.', badge: 'Flagship', contextWindow: '128k tokens' },
-            { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Affordable, fast intelligence for routine academic summaries.', badge: 'Fast', contextWindow: '128k tokens' },
-            { id: 'o1', name: 'o1 Reasoning', description: 'Deep deliberate reasoning for complex mathematical and STEM hypotheses.', badge: 'Deep Reasoning', contextWindow: '200k tokens' },
-            { id: 'o3-mini', name: 'o3-mini', description: 'Next-generation low-latency reasoning model for STEM synthesis.', badge: 'STEM Reasoning', contextWindow: '200k tokens' },
-            { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'High-reliability previous flagship with comprehensive knowledge cutoff.', badge: 'Stable', contextWindow: '128k tokens' },
+            { id: 'gpt-4o', name: 'GPT-4o (Omni)', description: 'Flagship multimodal model for high-speed scientific reasoning, figure analysis, and tables.', badge: 'Flagship Omni', contextWindow: '128k tokens' },
+            { id: 'o3-mini', name: 'o3-mini', description: 'Latest reasoning model specializing in STEM synthesis, coding, and mathematical logic.', badge: 'STEM Reasoning', contextWindow: '200k tokens' },
+            { id: 'o1', name: 'o1 Reasoning', description: 'Deep deliberate reasoning for complex mathematical, biochemical, and STEM hypotheses.', badge: 'Deep Reasoning', contextWindow: '200k tokens' },
+            { id: 'gpt-4.5-preview', name: 'GPT-4.5 Preview', description: 'Broad world knowledge and deep technical nuance for manuscript synthesis.', badge: 'Frontier Knowledge', contextWindow: '128k tokens' },
+            { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Affordable, fast intelligence for routine academic summaries and tabular parsing.', badge: 'Fast', contextWindow: '128k tokens' },
         ]
     },
     anthropic: {
@@ -96,10 +120,9 @@ export const SUPPORTED_PROVIDERS: Record<LLMProviderId, ProviderDefinition> = {
         defaultModel: 'claude-3-7-sonnet-20250219',
         supportsCustomModel: true,
         models: [
-            { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', description: 'Hybrid reasoning and leading coding / scientific analysis capabilities.', badge: 'Latest', contextWindow: '200k tokens' },
-            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Exceptional academic writing, code simulation, and data analysis.', badge: 'Highly Rated', contextWindow: '200k tokens' },
-            { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Near instantaneous response time for quick iterations and filtering.', badge: 'High Speed', contextWindow: '200k tokens' },
-            { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', description: 'Deep contextual understanding for exhaustive literature synthesis.', badge: 'Deep Context', contextWindow: '200k tokens' },
+            { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', description: 'Hybrid reasoning and leading coding, scientific analysis, and technical visualization capabilities.', badge: 'Latest Hybrid', contextWindow: '200k tokens' },
+            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', description: 'Exceptional academic writing, code simulation, and rigorous data analysis.', badge: 'Highly Rated', contextWindow: '200k tokens' },
+            { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', description: 'Near instantaneous response time for quick iterations, tabular QA, and filtering.', badge: 'High Speed', contextWindow: '200k tokens' },
         ]
     },
     ollama: {
@@ -116,15 +139,15 @@ export const SUPPORTED_PROVIDERS: Record<LLMProviderId, ProviderDefinition> = {
         oauthSupported: true,
         oauthProviderName: 'Enterprise SSO / Ollama Gateway',
         oauthScopeDesc: 'Authenticate against self-hosted OAuth gateways, reverse proxies, or cloud-hosted Ollama hubs.',
-        defaultModel: 'llama3.3:latest',
+        defaultModel: 'deepseek-r1:latest',
         defaultEndpoint: 'http://localhost:11434',
         supportsCustomModel: true,
         models: [
-            { id: 'llama3.3:latest', name: 'Llama 3.3 (70B)', description: 'State-of-the-art open research model matching GPT-4 class capabilities.', badge: 'Open Flagship', contextWindow: '128k tokens' },
+            { id: 'deepseek-r1:latest', name: 'DeepSeek R1', description: 'Open weights reasoning model specializing in scientific math, algorithmic logic, and proofs.', badge: 'Open Reasoning', contextWindow: '64k tokens' },
+            { id: 'llama3.3:latest', name: 'Llama 3.3 (70B)', description: 'State-of-the-art open research model matching GPT-4 class capabilities for academic drafting.', badge: 'Open Flagship', contextWindow: '128k tokens' },
+            { id: 'qwen2.5:72b', name: 'Qwen 2.5 (72B)', description: 'Exceptional multilingual, technical coding, and mathematical benchmark performance.', badge: 'Math & Code', contextWindow: '128k tokens' },
+            { id: 'phi-4:latest', name: 'Phi-4 (14B)', description: 'Compact Microsoft model with synthetic-data trained reasoning for scientific logic.', badge: 'Compact STEM', contextWindow: '16k tokens' },
             { id: 'llama3.1:8b', name: 'Llama 3.1 (8B)', description: 'Fast, lightweight local execution requiring minimal VRAM (8GB).', badge: 'Lightweight', contextWindow: '128k tokens' },
-            { id: 'mistral:latest', name: 'Mistral (7B)', description: 'Efficient foundational model for quick summarization and data parsing.', badge: 'Efficient', contextWindow: '32k tokens' },
-            { id: 'deepseek-r1:latest', name: 'DeepSeek R1', description: 'Open weights reasoning model specializing in scientific math and logic.', badge: 'Reasoning', contextWindow: '64k tokens' },
-            { id: 'qwen2.5:72b', name: 'Qwen 2.5 (72B)', description: 'Strong multilingual and technical coding benchmarks.', badge: 'Math & Code', contextWindow: '128k tokens' },
         ]
     },
     openrouter: {
@@ -141,14 +164,14 @@ export const SUPPORTED_PROVIDERS: Record<LLMProviderId, ProviderDefinition> = {
         oauthSupported: true,
         oauthProviderName: 'OpenRouter Account OAuth (PKCE)',
         oauthScopeDesc: 'Authenticate with your OpenRouter balance and account subscription directly.',
-        defaultModel: 'google/gemini-2.5-flash',
+        defaultModel: 'anthropic/claude-3.7-sonnet',
         supportsCustomModel: true,
         models: [
-            { id: 'google/gemini-2.5-flash', name: 'Google: Gemini 2.5 Flash', description: 'High-throughput access to Gemini via OpenRouter credits.', badge: 'Popular', contextWindow: '1M tokens' },
-            { id: 'anthropic/claude-3.5-sonnet', name: 'Anthropic: Claude 3.5 Sonnet', description: 'Top-tier code and scientific drafting routed through OpenRouter.', badge: 'Recommended', contextWindow: '200k tokens' },
-            { id: 'openai/gpt-4o', name: 'OpenAI: GPT-4o', description: 'Direct access to GPT-4o multimodal model.', badge: 'Omni', contextWindow: '128k tokens' },
-            { id: 'deepseek/deepseek-chat', name: 'DeepSeek: DeepSeek V3', description: 'Extremely cost-effective, high intelligence general model.', badge: 'Ultra Value', contextWindow: '64k tokens' },
-            { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Meta: Llama 3.3 70B Instruct', description: 'Open-weights flagship hosted on high-speed inference clusters.', badge: 'Open Weights', contextWindow: '128k tokens' },
+            { id: 'anthropic/claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', description: 'Leading hybrid reasoning and scientific analysis routed through OpenRouter.', badge: 'Top Recommended', contextWindow: '200k tokens' },
+            { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', description: 'Leading open-weights reasoning model for complex STEM calculations and proofs.', badge: 'STEM Reasoning', contextWindow: '64k tokens' },
+            { id: 'openai/gpt-4o', name: 'OpenAI: GPT-4o', description: 'Direct access to GPT-4o multimodal model for figures, tables, and drafting.', badge: 'Omni', contextWindow: '128k tokens' },
+            { id: 'x-ai/grok-2-1212', name: 'xAI: Grok 2', description: 'xAI Grok routed with deep reasoning and technical problem solving.', badge: 'Grok Reasoning', contextWindow: '128k tokens' },
+            { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', description: 'Extremely cost-effective frontier model with high intelligence and broad knowledge.', badge: 'Ultra Value', contextWindow: '64k tokens' },
         ]
     }
 };

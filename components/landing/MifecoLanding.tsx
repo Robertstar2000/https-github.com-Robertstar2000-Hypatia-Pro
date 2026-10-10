@@ -153,7 +153,7 @@ export const MifecoLanding: React.FC<MifecoLandingProps> = ({
           <div className="mt-6 flex flex-wrap gap-2.5 sm:gap-3 text-xs text-slate-400 font-mono">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/90 border border-slate-800">
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-              Gemini 3.5 Engine
+              Autonomous AI Engine
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/90 border border-slate-800">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>

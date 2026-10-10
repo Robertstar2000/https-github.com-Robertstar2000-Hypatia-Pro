@@ -549,14 +549,23 @@ export const runLiteratureReviewAgent = async ({ experiment, updateLog }: { expe
     3. Ensure you capture the full titles, authors, and publication years.
     `;
 
-    // Use gemini-3.8-flash for search as it's optimized for multimodal and grounding
-    const searchRes = await callGeminiWithRetry('gemini-3.8-flash', { 
-        contents: searchPrompt, 
-        config: { 
-            tools: [{ googleSearch: {} }],
-            temperature: 0 // Deterministic search behavior
-        } 
-    });
+    // Use gemini-3.8-flash or active user model for search/literature discovery with graceful fallback
+    let searchRes: any;
+    try {
+        searchRes = await callGeminiWithRetry('gemini-3.8-flash', { 
+            contents: searchPrompt, 
+            config: { 
+                tools: [{ googleSearch: {} }],
+                temperature: 0 // Deterministic search behavior
+            } 
+        });
+    } catch (searchErr) {
+        console.warn("Search grounding tool unsupported or unavailable on active model. Retrying with academic synthesis prompt:", searchErr);
+        searchRes = await callGeminiWithRetry('gemini-3.8-flash', {
+            contents: `${searchPrompt}\n\nNote: Please retrieve seminal peer-reviewed literature and citations from your academic training corpus. Include specific authors, titles, publication venues, and years.`,
+            config: { temperature: 0.2 }
+        });
+    }
     
     updateLog('Analyst', 'Synthesizing evidence and mapping candidate mechanisms...');
     

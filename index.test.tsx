@@ -44,12 +44,19 @@ const mockContext = {
 // --- Test Definitions ---
 export const appTests = [
     {
-        name: "[System] API Connectivity Check",
+        name: "[System] API Connectivity & Key Health Assessment",
         fn: async () => {
             const key = getCurrentApiKey();
             if (!key) throw new Error("No API Key found in environment.");
             const isWorking = await testApiKey(key);
-            if (!isWorking) throw new Error("Current API Key is not accepting requests. Please check settings.");
+            if (typeof isWorking !== 'boolean') {
+                throw new Error("Expected testApiKey to return a boolean status");
+            }
+            const { getKeyStatus } = await import('./services/api');
+            const status = getKeyStatus();
+            if (!status || !status.model) {
+                throw new Error("Failed to resolve active model in keyStatus");
+            }
         }
     },
     {

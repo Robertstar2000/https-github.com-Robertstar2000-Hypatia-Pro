@@ -143,10 +143,13 @@ export const parseGeminiError = (error: any, defaultMsg = "An error occurred wit
     console.error("Gemini Error:", error);
     const msg = error?.message || error?.toString() || "";
     
+    if (msg.includes("leaked") || msg.includes("reported as leaked")) {
+        return "API Key was reported as leaked or revoked. Please provide your own personal API key in Login or Settings.";
+    }
     if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
         return "Quota Limit Reached. System is cooling down...";
     }
-    if (msg.includes("401")) return "Authentication Failed. Please check API Key.";
+    if (msg.includes("401") || msg.includes("403") || msg.includes("PERMISSION_DENIED")) return "Authentication Failed. Please check API Key.";
     if (msg.includes("503") || msg.includes("overloaded") || msg.includes("500") || msg.includes("Rpc failed")) return "Service Temporarily Unavailable. Retrying...";
     if (msg.includes("SAFETY")) return "Safety Filter Triggered. Please refine input.";
     if (msg.includes("400") || msg.includes("Bad Request") || msg.includes("INVALID_ARGUMENT")) return `Invalid Request: ${msg}`;
@@ -310,9 +313,41 @@ export const callGeminiWithRetry = async (
             if (isAuthError) {
                  if (typeof window !== 'undefined') localStorage.removeItem('hmap-gemini-api-key');
                  console.error(`[API Fatal Error] Auth/Permission error:`, msg);
+                 if (msg.includes("leaked") || msg.includes("reported as leaked")) {
+                     throw new Error("Your API Key was reported as leaked or compromised. Please provide your own Gemini API Key in Login or Settings.");
+                 }
                  throw new Error("Access Denied (403/401). Please check your API Key and ensure it has correct permissions.");
             }
             if (isBadRequest) {
+                // If model rejected responseSchema, retry with embedded JSON schema instructions in prompt
+                if (params.config?.responseSchema) {
+                    console.warn(`[API Compatibility] Model ${currentModel} rejected responseSchema configuration. Retrying with embedded prompt instructions...`);
+                    const schemaObj = params.config.responseSchema;
+                    const strippedConfig = { ...params.config };
+                    delete strippedConfig.responseSchema;
+                    
+                    const schemaInstructions = `\n\nREQUIRED JSON SCHEMA:\n${JSON.stringify(schemaObj, null, 2)}\nOutput strictly valid JSON complying with this schema. Do not output markdown code blocks.`;
+                    
+                    let newContents = params.contents;
+                    if (typeof newContents === 'string') {
+                        newContents = newContents + schemaInstructions;
+                    } else if (newContents?.parts) {
+                        newContents = { ...newContents, parts: [...newContents.parts, { text: schemaInstructions }] };
+                    }
+                    
+                    try {
+                        const fallbackAi = new GoogleGenAI({ apiKey: getSafeEnvApiKey() });
+                        const fallbackResponse = await callGeminiWithTimeout(fallbackAi.models.generateContent({
+                            model: currentModel,
+                            ...params,
+                            contents: newContents,
+                            config: strippedConfig
+                        }), timeout);
+                        return fallbackResponse;
+                    } catch (retryErr) {
+                        console.error("[API Compatibility] Prompt schema fallback also failed:", retryErr);
+                    }
+                }
                 console.error(`[API Fatal Error] Bad Request:`, msg);
                 throw error;
             }

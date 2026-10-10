@@ -21,7 +21,7 @@ export interface MethodologyTradeCriterion {
   id: string;
   name: string;
   weight: number;
-  description: string;
+  description?: string;
   unit?: string;
   direction: 'higher_is_better' | 'lower_is_better';
 }

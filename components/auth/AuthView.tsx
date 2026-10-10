@@ -46,6 +46,10 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
   const [isStudioLoggingIn, setIsStudioLoggingIn] = useState(false);
 
   const [keyStatus, setKeyStatus] = useState(getKeyStatus);
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    const curConfig = getStoredLLMConfig();
+    return curConfig.model || 'gemini-3.8-flash';
+  });
 
   const [formData, setFormData] = useState({
     username: '',
@@ -115,15 +119,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
       if (data.token) {
         localStorage.setItem('hmap-token', data.token);
       }
-      if (data.user.geminiKey) {
-        localStorage.setItem('hmap-gemini-api-key', data.user.geminiKey);
+      
+      const effectiveKey = formData.geminiKey?.trim() || data.user.geminiKey?.trim();
+      if (effectiveKey) {
+        localStorage.setItem('hmap-gemini-api-key', effectiveKey);
         const curConfig = getStoredLLMConfig();
         saveLLMConfig({
           ...curConfig,
           provider: 'google',
-          apiKey: data.user.geminiKey.trim(),
+          apiKey: effectiveKey,
+          model: selectedModel || curConfig.model || 'gemini-3.8-flash',
           isVerified: true
         });
+      } else if (selectedModel) {
+        const curConfig = getStoredLLMConfig();
+        if (curConfig.model !== selectedModel) {
+          saveLLMConfig({
+            ...curConfig,
+            model: selectedModel
+          });
+        }
       }
       
       addToast(`Welcome back, ${data.user.username || 'Researcher'}!`, 'success');
@@ -491,38 +506,90 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
                   </div>
                 </div>
 
-                {!isLogin && (
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-300">
+                      Provide Your Own Key
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowLLMModal(true)}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1"
+                    >
+                      <Cpu className="w-3 h-3" />
+                      <span>All 5 Providers &raquo;</span>
+                    </button>
+                  </div>
+
+                  <div className="relative mb-2">
+                    <input 
+                      type={showApiKey ? "text" : "password"}
+                      value={formData.geminiKey}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setFormData({...formData, geminiKey: val});
+                        if (val.trim()) {
+                          localStorage.setItem('hmap-gemini-api-key', val.trim());
+                          const curConfig = getStoredLLMConfig();
+                          saveLLMConfig({
+                            ...curConfig,
+                            provider: 'google',
+                            apiKey: val.trim(),
+                            model: selectedModel || curConfig.model || 'gemini-3.8-flash',
+                            isVerified: true
+                          });
+                        }
+                      }}
+                      placeholder="Optional Gemini Key (AIzaSy...)"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all pr-9 min-h-[38px] font-mono"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    >
+                      {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {/* Allowed Model Selector */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-300">
-                        Optional Gemini Key
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowLLMModal(true)}
-                        className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono"
-                      >
-                        All Providers &raquo;
-                      </button>
+                    <div className="flex items-center justify-between mb-1 text-[10px] font-mono">
+                      <span className="text-slate-400 uppercase">Selected Engine:</span>
+                      <span className="text-cyan-300 font-bold truncate max-w-[170px]">{selectedModel}</span>
                     </div>
-                    <div className="relative">
-                      <input 
-                        type={showApiKey ? "text" : "password"}
-                        value={formData.geminiKey}
-                        onChange={e => setFormData({...formData, geminiKey: e.target.value})}
-                        placeholder="AIzaSy..."
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all pr-9 min-h-[40px] font-mono"
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => setShowApiKey(!showApiKey)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                      >
-                        {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[
+                        { id: 'gemini-3.8-flash', label: '3.8 Flash', tag: 'Fast' },
+                        { id: 'gemini-3.1-pro-preview', label: '3.1 Pro', tag: 'STEM' },
+                        { id: 'gemini-3.1-flash-lite', label: 'Flash Lite', tag: 'Lite' }
+                      ].map(m => {
+                        const isChosen = selectedModel === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedModel(m.id);
+                              const curConfig = getStoredLLMConfig();
+                              saveLLMConfig({
+                                ...curConfig,
+                                model: m.id
+                              });
+                            }}
+                            className={`py-1 px-1.5 rounded-lg text-[10px] font-mono transition-all text-center border ${
+                              isChosen 
+                                ? 'bg-cyan-500/20 text-cyan-200 border-cyan-400/60 font-bold shadow-sm' 
+                                : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                            }`}
+                          >
+                            <span className="block truncate">{m.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                )}
+                </div>
 
                 <div className="pt-1">
                   <button

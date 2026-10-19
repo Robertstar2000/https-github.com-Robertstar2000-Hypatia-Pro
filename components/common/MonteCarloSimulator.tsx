@@ -26,7 +26,7 @@ export const MonteCarloSimulator: React.FC = () => {
                     <div>
                         <h6 className="fw-bold mb-0 text-white">In-Browser Monte Carlo Simulation Engine</h6>
                         <small className="text-white-50" style={{ fontSize: '0.75rem' }}>
-                            1,000+ trial stochastic sensitivity testing at 0 token cost
+                            1,000+ trial stochastic sensitivity testing with zero-latency in-memory computation
                         </small>
                     </div>
                 </div>

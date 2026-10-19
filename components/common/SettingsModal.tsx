@@ -47,7 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                                         <div>
                                             <div className="fw-bold">{keyStatus.label}</div>
                                             <div className="small text-white-50">
-                                                {keyStatus.isOAuth ? 'Linked via OAuth Subscription' : (keyStatus.type === 'manual' ? 'Custom API key active' : 'System key active')}
+                                                {keyStatus.isOAuth ? 'Linked via OAuth Account' : (keyStatus.type === 'manual' ? 'Custom API key active' : 'System key active')}
                                             </div>
                                         </div>
                                     </div>

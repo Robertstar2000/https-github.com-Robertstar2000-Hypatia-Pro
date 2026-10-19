@@ -86,8 +86,8 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                 const provider = event.data.provider || selectedProvider;
                 const token = event.data.token || `oauth_${provider}_${Date.now()}`;
                 const account = event.data.account || {
-                    name: `${provider.toUpperCase()} Subscriber`,
-                    tier: 'Pro Subscription Active',
+                    name: `${provider.toUpperCase()} Researcher`,
+                    tier: 'Researcher Account Active',
                     connectedAt: new Date().toISOString()
                 };
 
@@ -95,9 +95,9 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                 setOauthAccount(account);
                 setTestResult({
                     success: true,
-                    message: `Successfully authenticated subscription for ${SUPPORTED_PROVIDERS[selectedProvider]?.name || provider}!`
+                    message: `Successfully authenticated account for ${SUPPORTED_PROVIDERS[selectedProvider]?.name || provider}!`
                 });
-                addToast(`Connected to ${SUPPORTED_PROVIDERS[selectedProvider]?.name} subscription.`, 'success');
+                addToast(`Connected to ${SUPPORTED_PROVIDERS[selectedProvider]?.name} account.`, 'success');
             }
         };
 
@@ -140,12 +140,12 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
         }
     };
 
-    // Disconnect OAuth subscription
+    // Disconnect OAuth account
     const handleDisconnectOAuth = () => {
         setOauthToken('');
         setOauthAccount(undefined);
         setTestResult(null);
-        addToast(`Disconnected ${providerDef.name} OAuth subscription.`, 'info');
+        addToast(`Disconnected ${providerDef.name} OAuth account.`, 'info');
     };
 
     // Test connection with currently entered parameters
@@ -205,7 +205,7 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
         }
 
         if (authMode === 'oauth' && !oauthToken.trim()) {
-            addToast(`Please connect your ${providerDef.name} subscription via OAuth first, or switch to API Key mode.`, 'warning');
+            addToast(`Please connect your ${providerDef.name} account via OAuth first, or switch to API Key mode.`, 'warning');
             return;
         }
 
@@ -264,7 +264,7 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                                     LLM Provider & Credentials
                                 </h5>
                                 <p className="text-white-50 small mb-0" style={{ fontSize: '0.78rem' }}>
-                                    Set your AI provider, API key, or link your provider subscription via OAuth
+                                    Set your AI provider, API key, or link your provider account via OAuth
                                 </p>
                             </div>
                         </div>
@@ -348,7 +348,7 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                                         onClick={() => { setAuthMode('oauth'); setTestResult(null); }}
                                         className={`btn ${authMode === 'oauth' ? 'btn-primary' : 'btn-outline-secondary'}`}
                                     >
-                                        <i className="bi bi-shield-lock-fill me-1"></i> OAuth Subscription
+                                        <i className="bi bi-shield-lock-fill me-1"></i> OAuth Account
                                     </button>
                                 </div>
                             </div>
@@ -433,7 +433,7 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                                 </div>
                             )}
 
-                            {/* Option B: OAuth Subscription Mode */}
+                            {/* Option B: OAuth Authorization Mode */}
                             {authMode === 'oauth' && (
                                 <div className="p-3 rounded-2 bg-slate-900/90 border border-slate-800">
                                     <div className="d-flex items-start gap-3">
@@ -445,7 +445,7 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                                                 {providerDef.oauthProviderName}
                                             </h6>
                                             <p className="text-slate-400 small mb-3 leading-relaxed">
-                                                {providerDef.oauthScopeDesc} Connect your existing plan without copying or exposing secret keys.
+                                                {providerDef.oauthScopeDesc} Connect your provider account without copying or exposing secret keys.
                                             </p>
 
                                             {oauthToken ? (
@@ -454,9 +454,9 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                                                         <div className="d-flex align-items-center gap-2">
                                                             <i className="bi bi-check-circle-fill text-emerald-400"></i>
                                                             <div>
-                                                                <span className="fw-bold d-block text-white">Subscription Active & Verified</span>
+                                                                <span className="fw-bold d-block text-white">Account Linked & Verified</span>
                                                                 <span className="text-emerald-400 font-mono text-xs">
-                                                                    {oauthAccount?.name || 'Authorized Account'} ({oauthAccount?.tier || 'Pro Plan'})
+                                                                    {oauthAccount?.name || 'Authorized Account'} ({oauthAccount?.tier || 'Researcher Access'})
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -486,7 +486,7 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
                                                         ) : (
                                                             <>
                                                                 <i className="bi bi-box-arrow-in-up-right"></i>
-                                                                <span>Connect with {providerDef.name} Subscription</span>
+                                                                <span>Connect with {providerDef.name} Account</span>
                                                             </>
                                                         )}
                                                     </button>

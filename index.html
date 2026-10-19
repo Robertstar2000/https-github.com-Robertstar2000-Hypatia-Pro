@@ -28,150 +28,35 @@
             nextTick: function(cb) { setTimeout(cb, 0); }
         };
 
-        // Live Diagnostic Panel for on-screen debugging
-        (function() {
-            const errors = [];
-            function addDiag(type, text) {
-                const lowerText = String(text).toLowerCase();
-                if (
-                    lowerText.includes('websocket') || 
-                    lowerText.includes('connection') || 
-                    lowerText.includes('vite') || 
-                    lowerText.includes('hmr') || 
-                    lowerText.includes('hot module replacement')
-                ) {
-                    return; // Ignore benign Vite/WebSocket/HMR connection errors
-                }
-                errors.push({ type, text, time: new Date().toLocaleTimeString() });
-                updateDiagUI();
-            }
-            window.addEventListener('error', function(e) {
-                addDiag('error', e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')');
-            });
-            window.addEventListener('unhandledrejection', function(e) {
-                const reason = e.reason ? (e.reason.message || String(e.reason)) : 'Promise rejection';
-                const lowerReason = reason.toLowerCase();
-                if (
-                    lowerReason.includes('websocket') || 
-                    lowerReason.includes('connection') || 
-                    lowerReason.includes('vite') || 
-                    lowerReason.includes('hmr') || 
-                    lowerReason.includes('hot module replacement')
-                ) {
-                    e.preventDefault();
-                    return;
-                }
-                addDiag('rejection', reason);
-            });
-            
-            const origError = console.error;
-            console.error = function(...args) {
-                origError.apply(console, args);
-                const text = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-                addDiag('console_err', text);
-            };
-            
-            function updateDiagUI() {
-                let div = document.getElementById('diag-panel');
-                if (!div) {
-                    div = document.createElement('div');
-                    div.id = 'diag-panel';
-                    div.style.position = 'fixed';
-                    div.style.bottom = '15px';
-                    div.style.left = '15px';
-                    div.style.zIndex = '999999';
-                    div.style.background = 'rgba(15, 17, 23, 0.95)';
-                    div.style.border = '1px solid #ef4444';
-                    div.style.color = '#fca5a5';
-                    div.style.padding = '12px';
-                    div.style.borderRadius = '12px';
-                    div.style.fontSize = '12px';
-                    div.style.fontFamily = 'monospace';
-                    div.style.maxWidth = '400px';
-                    div.style.maxHeight = '250px';
-                    div.style.overflow = 'auto';
-                    div.style.boxShadow = '0 10px 30px rgba(0,0,0,0.8)';
-                    div.style.borderLeft = '4px solid #ef4444';
-                    
-                    const header = document.createElement('div');
-                    header.innerHTML = '<span style="color:#ef4444;font-weight:bold;margin-right:8px;">● DIAGNOSTICS</span> <button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;float:right;font-weight:bold;">×</button><hr style="border-color:rgba(255,255,255,0.1);margin:6px 0;">';
-                    div.appendChild(header);
-                    
-                    const content = document.createElement('div');
-                    content.id = 'diag-panel-content';
-                    div.appendChild(content);
-                    
-                    document.body.appendChild(div);
-                }
-                const content = document.getElementById('diag-panel-content');
-                if (content) {
-                    content.innerHTML = errors.map(err => 
-                        `<div style="margin-bottom:6px;word-break:break-all;"><span style="color:#94a3b8;">[${err.time}]</span> <span style="color:#f87171;">${err.text}</span></div>`
-                    ).join('');
-                }
-            }
-            
-            // Check if page loaded successfully after 3 seconds
-            setTimeout(function() {
-                const root = document.getElementById('root');
-                if (root && root.childNodes.length === 0 && errors.length === 0) {
-                    addDiag('warning', 'App not rendered. Check if dev server completed loading or there is a load-time deadlock.');
-                }
-            }, 3000);
-        })();
-
-        window.onerror = function(msg, url, line, col, error) {
-            if (msg === 'Script error.' && !url) return;
-            const lowerMsg = String(msg).toLowerCase();
-            if (
-                lowerMsg.includes('websocket') || 
-                lowerMsg.includes('connection') || 
-                lowerMsg.includes('vite') || 
-                lowerMsg.includes('hmr') || 
-                lowerMsg.includes('hot module replacement')
-            ) {
-                return; // Ignore benign Vite/WebSocket/HMR connection errors
-            }
-            console.error("Global Error:", msg, url, line, col, error);
-            fetch('/api/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'error',
-                    message: msg,
-                    url: url,
-                    line: line,
-                    column: col,
-                    stack: error ? error.stack : null
-                })
-            }).catch(e => console.error(e));
-        };
-        window.addEventListener('unhandledrejection', function(event) {
-            const reason = event.reason ? (event.reason.message || String(event.reason)) : 'Unknown rejection';
+        // Suppress benign Vite/HMR WebSocket connection errors in iframe preview
+        window.addEventListener('unhandledrejection', function(e) {
+            const reason = e.reason ? (e.reason.message || String(e.reason)) : '';
             const lowerReason = reason.toLowerCase();
             if (
                 lowerReason.includes('websocket') || 
                 lowerReason.includes('connection') || 
                 lowerReason.includes('vite') || 
                 lowerReason.includes('hmr') || 
-                lowerReason.includes('hot module replacement') ||
-                (event.reason && event.reason.stack && event.reason.stack.toLowerCase().includes('vite'))
+                lowerReason.includes('hot module replacement')
             ) {
-                event.preventDefault();
-                return;
+                e.preventDefault();
             }
-            console.error("Unhandled Rejection:", event.reason);
-            event.preventDefault();
-            fetch('/api/log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'unhandledrejection',
-                    message: reason,
-                    stack: event.reason ? event.reason.stack : null
-                })
-            }).catch(e => console.error(e));
         });
+
+        window.onerror = function(msg, url, line, col, error) {
+            if (msg === 'Script error.' && !url) return true;
+            const lowerMsg = String(msg || '').toLowerCase();
+            const lowerUrl = String(url || '').toLowerCase();
+            if (
+                lowerMsg.includes('websocket') || 
+                lowerMsg.includes('connection') || 
+                lowerMsg.includes('vite') || 
+                lowerMsg.includes('hmr') || 
+                lowerUrl.includes('@vite/client')
+            ) {
+                return true; // Ignore benign Vite/WebSocket/HMR connection errors
+            }
+        };
     </script>
 
     <style>

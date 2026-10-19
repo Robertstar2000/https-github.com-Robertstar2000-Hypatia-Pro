@@ -171,7 +171,7 @@ export const AppMenuModal: React.FC<AppMenuModalProps> = ({ onClose, setView, ac
             id: 'auth',
             label: 'Account & Authority',
             icon: 'bi-person-badge',
-            description: 'Demo Free, Stripe Business, or Studio Login',
+            description: 'Researcher Access & Studio Sign-In',
             action: () => handleNavigate('auth'),
             visible: true
         },

@@ -111,13 +111,14 @@ export interface ToastContextType {
     addToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
 }
 
-export const SCIENTIFIC_FIELDS = [
-    "Anthropology", "Archaeology", "Astronomy", "Biochemistry", "Biology", "Chemistry",
-    "Cognitive Science", "Computer Science", "Data Science", "Earth Science", "Economics",
-    "Education", "Engineering", "Environmental Science", "Genetics", "Humanities",
-    "Linguistics", "Materials Science", "Mathematics", "Medicine", "Neuroscience",
-    "Philosophy", "Physics", "Political Science", "Psychology", "Robotics", "Social Sciences", "Sociology"
-] as const;
+export { 
+    SCIENTIFIC_FIELDS, 
+    SCIENTIFIC_FIELD_CATEGORIES, 
+    getFieldProfile, 
+    getCategoryForField,
+    buildFieldSearchQueryDirective 
+} from './services/scientificFields';
+export type { ScientificFieldCategory, FieldProfile } from './services/scientificFields';
 
 // --- WORKFLOW CONFIGURATION ---
 export const WORKFLOW_STEPS = [

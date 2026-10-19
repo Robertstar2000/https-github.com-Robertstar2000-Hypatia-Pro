@@ -53,7 +53,7 @@ export const WaitlistModal: React.FC<WaitlistModalProps> = ({ isOpen, onClose, s
             <h2 className="h4 fw-black font-['Space_Grotesk'] tracking-tight mb-1 text-white">
               HYPATIA PRO <span className="text-[#6366f1] text-xs">ENTERPRISE INQUIRY</span>
             </h2>
-            <p className="text-xs text-[#94a3b8] tracking-widest uppercase">Self-service Stripe checkout is live. Submit for custom university/lab SLAs.</p>
+            <p className="text-xs text-[#94a3b8] tracking-widest uppercase">Inquire for custom university, institutional, and laboratory deployments.</p>
           </div>
           <button onClick={handleClose} className="btn-close btn-close-white" aria-label="Close"></button>
         </div>

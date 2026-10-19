@@ -34,7 +34,7 @@ export const Header = ({ setView, activeView, onToggleNotebook, onToggleCitation
                             type="button"
                             className="btn btn-outline-secondary d-flex align-items-center gap-1.5 px-2.5 py-1.5 border-opacity-25 hover-border-primary text-white rounded-pill"
                             onClick={() => setShowLLMModal(true)}
-                            title="Configure LLM Provider, API Key, or OAuth Subscription"
+                            title="Configure LLM Provider & API Key"
                             style={{ fontSize: '0.8rem', background: 'rgba(15, 23, 42, 0.6)' }}
                         >
                             <i className="bi bi-key-fill text-primary-glow"></i>
@@ -74,7 +74,7 @@ export const Header = ({ setView, activeView, onToggleNotebook, onToggleCitation
                             type="button"
                             className="btn btn-outline-secondary d-flex align-items-center gap-1.5 px-2.5 py-1.5 border-opacity-25 hover-border-primary text-white rounded-pill"
                             onClick={() => setView('auth')}
-                            title="Sign In, Demo Free, or Mifeco Business Stripe Authority"
+                            title="Sign In or Access Workspace"
                             style={{ fontSize: '0.8rem', background: 'rgba(15, 23, 42, 0.6)' }}
                         >
                             <i className="bi bi-person-circle text-primary-glow"></i>

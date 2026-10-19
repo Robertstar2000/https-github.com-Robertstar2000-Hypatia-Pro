@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useExperiment } from '../../services';
 import { useToast } from '../../toast';
+import { ScientificFieldSelector } from '../common/ScientificFieldSelector';
+import { getFieldProfile } from '../../services/scientificFields';
 
 interface EditableStepInputProps {
     stepId: number;
@@ -18,6 +20,7 @@ export const EditableStepInput: React.FC<EditableStepInputProps> = ({ stepId }) 
         
     const [inputValue, setInputValue] = useState(defaultInitialValue);
     const [isSaving, setIsSaving] = useState(false);
+    const [showFieldEditor, setShowFieldEditor] = useState(false);
 
     useEffect(() => {
         if (stepData.input) {
@@ -39,6 +42,16 @@ export const EditableStepInput: React.FC<EditableStepInputProps> = ({ stepId }) 
         setTimeout(() => setIsSaving(false), 500);
     };
 
+    const handleFieldChange = async (newField: string) => {
+        if (!activeExperiment) return;
+        try {
+            await updateExperiment({ ...activeExperiment, field: newField });
+            addToast(`Scientific field set to "${newField}". Terminology and literature search adapted.`, "success");
+        } catch (e) {
+            addToast("Error updating scientific field.", "danger");
+        }
+    };
+
     const handleInsertScopeSnippet = (snippet: string) => {
         setInputValue(prev => {
             const separator = prev.trim() ? '\n\n' : '';
@@ -56,6 +69,8 @@ export const EditableStepInput: React.FC<EditableStepInputProps> = ({ stepId }) 
     };
 
     const isStep1 = stepId === 1;
+    const currentField = activeExperiment?.field || 'Biology (General)';
+    const fieldProfile = getFieldProfile(currentField);
 
     return (
         <div className="card border-secondary border-opacity-25 bg-dark bg-opacity-30 rounded-3 mb-4 overflow-hidden shadow-sm">
@@ -80,20 +95,81 @@ export const EditableStepInput: React.FC<EditableStepInputProps> = ({ stepId }) 
 
                     {isStep1 && activeExperiment && (
                         <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                            {activeExperiment.field && (
-                                <span className="badge bg-secondary bg-opacity-25 text-white-50 font-mono" style={{ fontSize: '0.7rem' }}>
-                                    {activeExperiment.field}
-                                </span>
-                            )}
+                            <button
+                                type="button"
+                                onClick={() => setShowFieldEditor(prev => !prev)}
+                                className="btn btn-outline-secondary btn-xs py-1 px-2.5 rounded-pill font-mono d-inline-flex align-items-center gap-1.5 border-opacity-50 text-white"
+                                title="Click to change discipline or browse 80+ scientific fields"
+                                style={{ fontSize: '0.72rem' }}
+                            >
+                                <i className="bi bi-mortarboard-fill text-primary-glow"></i>
+                                <span>{currentField}</span>
+                                <i className={`bi ${showFieldEditor ? 'bi-chevron-up' : 'bi-pencil-fill'} ms-0.5 text-white-50`} style={{ fontSize: '0.65rem' }}></i>
+                            </button>
                             <span className="badge bg-info bg-opacity-15 text-info border border-info border-opacity-25 font-mono" style={{ fontSize: '0.7rem' }}>
                                 {activeExperiment.experimentMode === 'physical' ? 'Empirical Lab' : 'Simulation'}
                             </span>
                         </div>
                     )}
                 </div>
+
+                {/* Inline Field Changer & Terminology Adaptation Drawer for Step 1 */}
+                {isStep1 && showFieldEditor && (
+                    <div className="mt-3 p-3 rounded-3 bg-black bg-opacity-60 border border-primary border-opacity-25 animate-in">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span className="text-primary-glow font-mono fw-bold small text-uppercase d-flex align-items-center gap-1.5">
+                                <i className="bi bi-sliders"></i>
+                                Adapt Discipline, Terminology &amp; Literature Indices
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setShowFieldEditor(false)}
+                                className="btn btn-link btn-xs text-white-50 p-0 text-decoration-none"
+                            >
+                                Done
+                            </button>
+                        </div>
+                        <ScientificFieldSelector
+                            value={currentField}
+                            onChange={handleFieldChange}
+                            compact={false}
+                            showProfileCard={true}
+                            idPrefix="step1-field-editor"
+                            label=""
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="card-body p-3 p-md-4">
+                {/* Prominent Scientific Field & Terminology Focus at start of session */}
+                {isStep1 && (
+                    <div className="mb-4 p-3 rounded-3 bg-black bg-opacity-40 border border-primary border-opacity-30 shadow-sm">
+                        <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-2.5">
+                            <div>
+                                <span className="text-primary-glow font-mono fw-bold small text-uppercase d-flex align-items-center gap-1.5">
+                                    <i className="bi bi-mortarboard-fill"></i>
+                                    Scientific Discipline &amp; Literature Corpus Selection
+                                </span>
+                                <span className="text-white-50" style={{ fontSize: '0.75rem' }}>
+                                    Select your field to adapt theoretical terminology, ontologies, and targeted databases (e.g. PubMed, bioRxiv, arXiv).
+                                </span>
+                            </div>
+                            <span className="badge bg-primary bg-opacity-15 text-primary-glow border border-primary border-opacity-25 font-mono shrink-0" style={{ fontSize: '0.7rem' }}>
+                                <i className="bi bi-sliders me-1"></i> Terminology Active
+                            </span>
+                        </div>
+                        <ScientificFieldSelector
+                            value={currentField}
+                            onChange={handleFieldChange}
+                            compact={false}
+                            showProfileCard={true}
+                            idPrefix="step1-prominent-field"
+                            label="Current Scientific Discipline (80+ Available)"
+                        />
+                    </div>
+                )}
+
                 {/* Mobile Quick-Insert Scope Helpers for Step 1 */}
                 {isStep1 && (
                     <div className="mb-3">

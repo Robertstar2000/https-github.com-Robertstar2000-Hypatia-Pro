@@ -1,6 +1,7 @@
 
 import { Experiment, FineTuneSettings } from '../config';
 import { extractJson } from './api';
+import { getFieldProfile } from './scientificFields';
 
 /**
  * Retrieves context from previous steps to inform the current prompt.
@@ -8,6 +9,7 @@ import { extractJson } from './api';
  */
 export const getStepContext = async (experiment: Experiment, currentStepId: number) => {
     const data = experiment.stepData || {};
+    const fieldProfile = getFieldProfile(experiment.field || 'Biology');
     
     // Helper to get summary or output, with JSON awareness
     const getC = (step: number) => {
@@ -50,6 +52,7 @@ export const getStepContext = async (experiment: Experiment, currentStepId: numb
 
     return {
         experimentField: experiment.field,
+        fieldProfile,
         experimentMode: experiment.experimentMode,
         question: getC(1),
         literature_review_summary: getC(2),
@@ -90,7 +93,10 @@ export const getPromptForStep = (
     let expectJson = false;
     let config: any = {};
 
-    const role = `Role: ${context.experimentField} Scientist (Hypatia). Adhere to Scientific Method.`;
+    const field = context.experimentField || 'Biology';
+    const fieldProfile = context.fieldProfile || getFieldProfile(field);
+
+    const role = `Role: Principal Investigator & Senior Domain Specialist in ${field} (Hypatia). Adhere strictly to the Scientific Method and rigorous discipline conventions.`;
     const feedbackInstruction = feedback 
         ? `\n\n[MANDATORY RESOLUTION DIRECTIVE / FEEDBACK]:\n${feedback}\nYou must explicitly follow, incorporate, and fulfill these instructions in generating this step's output.` 
         : "";
@@ -101,6 +107,13 @@ export const getPromptForStep = (
             basePrompt = `${role}
             Analyze the user's initial idea/intent: "${input}".
             
+            SCIENTIFIC DISCIPLINE & TERMINOLOGY ADAPTATION DIRECTIVES:
+            - Discipline: ${field} (Category: ${fieldProfile.category})
+            - Standard Ontologies & Nomenclatures: ${fieldProfile.preferredOntologies.join(', ')}
+            - Terminology Adaptation Rule: ${fieldProfile.terminologyGuidelines}
+            - Disciplinary Methodological Focus: ${fieldProfile.methodologicalFocus}
+            - Search & Conceptual Keywords: ${fieldProfile.literatureSearchKeywords.slice(0, 6).join(', ')}
+            
             TUNING PARAMETERS:
             - Uniqueness Enforce Strictness: ${fineTune.uniquenessStrictness ?? 0.5} (Scale 0-1 of strict novelty checks)
             - Scope Focus Dimension: ${fineTune.scopeFocus ?? 'Balanced Inquiry'} (Sets breadth vs niche depth)
@@ -108,16 +121,18 @@ export const getPromptForStep = (
             - Disciplinary/Methodological Bias: ${fineTune.methodologicalBias ?? 'Balanced'} (Preferred research methodologies orientation)
 
             CRITICAL DIRECTIVE: You must rewrite the user's stated intent into rigorous, falsifiable scientific language.
-            - Restate the exact topic the user wants to investigate in the precise technical/academic dialect of the specific branch of scientific knowledge: "${context.experimentField}", heavily aligning with the UNIQNESS STRICTNESS (${fineTune.uniquenessStrictness ?? 0.5}), SCOPE FOCUS ("${fineTune.scopeFocus ?? 'Balanced Inquiry'}"), COMPLEXITY LEVEL ("${fineTune.complexityLevel ?? 'Postdoctoral'}"), and METHODOLOGICAL BIAS ("${fineTune.methodologicalBias ?? 'Balanced'}").
-            - Stay strictly focused on the user's intent. Do NOT add any extraneous information, make ungrounded assumptions, or extend the scope beyond what the user has explicitly requested.
+            - Restate the exact topic the user wants to investigate in the precise technical/academic dialect of "${field}".
+            - Adapt terminology to professional nomenclature (e.g. standard gene/protein symbols, SI units, formal reaction paths, tensor notations, or econometric variables as appropriate to ${field}).
+            - Heavily align with the UNIQUENESS STRICTNESS (${fineTune.uniquenessStrictness ?? 0.5}), SCOPE FOCUS ("${fineTune.scopeFocus ?? 'Balanced Inquiry'}"), COMPLEXITY LEVEL ("${fineTune.complexityLevel ?? 'Postdoctoral'}"), and METHODOLOGICAL BIAS ("${fineTune.methodologicalBias ?? 'Balanced'}").
+            - Stay strictly focused on the user's intent. Do NOT add extraneous information, ungrounded assumptions, or extend beyond what the user has requested.
             - Keep the scope ceiling strictly bounded by the user's input.
             
             CRITICAL: YOU MUST OUTPUT ONLY VALID JSON matching the specified schema:
-            - "research_question": The rigorously translated research question using the professional dialect of the field.
+            - "research_question": The rigorously translated research question using the professional dialect of ${field}.
             - "study_type": ['observational', 'simulation', 'benchmarking', 'controlled_experiment', 'qualitative']
             - "uniqueness_score": (float 0-1)
-            - "justification": Scientific justification of the question's focus and its alignment with the user's intent.
-            - "measurable_outcomes": Array of strings representing specific variables/metrics directly implied by the user's topic.
+            - "justification": Scientific justification of the question's focus, domain nomenclature alignment, and fidelity to user intent.
+            - "measurable_outcomes": Array of strings representing specific variables/metrics directly implied by the user's topic in ${field}.
             
             ${feedbackInstruction}`;
             break;
@@ -125,7 +140,14 @@ export const getPromptForStep = (
         case 2: // Lit Review
             expectJson = true;
             basePrompt = `${role}
-            Literature review for: "${context.question}".
+            Literature review for research question: "${context.question}".
+            
+            SCIENTIFIC DISCIPLINE & LITERATURE FOCUS:
+            - Target Discipline: ${field} (Category: ${fieldProfile.category})
+            - Primary Academic Registries & Repositories: ${fieldProfile.primaryDatabases.join(', ')}
+            - Field Search Keywords & Mechanisms: ${fieldProfile.literatureSearchKeywords.join(', ')}
+            - Terminology & Nomenclature Conventions: ${fieldProfile.terminologyGuidelines}
+            - Preferred Ontologies: ${fieldProfile.preferredOntologies.join(', ')}
             
             TUNING PARAMETERS:
             - Citation Historical Depth: ${fineTune.citationDepth ?? 'Comprehensive Historical-to-Modern'} (Preferred age/depth of citations)
@@ -133,13 +155,13 @@ export const getPromptForStep = (
             - Dispute Stance Tolerance: ${fineTune.disputeTolerance ?? 0.5} (Emphasis on conflicting views and scientific debates)
             - Source Repository Diversity: ${fineTune.sourceDiversity ?? 0.6} (Rigor in searching patents, preprints, and journals)
 
-            Conduct the literature scan and synthesis keeping the CITATION DEPTH ("${fineTune.citationDepth ?? 'Comprehensive Historical-to-Modern'}"), INTERDISCIPLINARY APERTURE (${fineTune.interdisciplinaryAperture ?? 0.5}), DISPUTE TOLERANCE (${fineTune.disputeTolerance ?? 0.5}), and SOURCE DIVERSITY (${fineTune.sourceDiversity ?? 0.6}) in absolute consideration.
+            Conduct the literature scan and synthesis strictly focusing on the recognized academic literature of ${field}, keeping the CITATION DEPTH ("${fineTune.citationDepth ?? 'Comprehensive Historical-to-Modern'}"), INTERDISCIPLINARY APERTURE (${fineTune.interdisciplinaryAperture ?? 0.5}), DISPUTE TOLERANCE (${fineTune.disputeTolerance ?? 0.5}), and SOURCE DIVERSITY (${fineTune.sourceDiversity ?? 0.6}) in absolute consideration.
             
             Output JSON per schema:
-            - "synthesis_narrative": Markdown summary.
-            - "evidence_gaps": List.
-            - "candidate_mechanisms": List.
-            - "references": Array. Use real, verifiable references.
+            - "synthesis_narrative": Markdown summary using specialized ${field} terminology and canonical nomenclature.
+            - "evidence_gaps": List of at least 3 concrete, actionable research gaps at the frontier of ${field}.
+            - "candidate_mechanisms": List of at least 2 causal mechanisms framed using established theoretical paradigms of ${field}.
+            - "references": Array of 5 verified papers from top journals/repositories in ${field} (${fieldProfile.primaryDatabases.slice(0, 3).join(', ')}). Use real, verifiable references.
             
             ${feedbackInstruction}`;
             break;

@@ -51,7 +51,7 @@ export const ApiKeySection = ({ onAuthenticate }) => {
                 </div>
                 <div className="alert alert-info small">
                     <i className="bi bi-info-circle-fill me-2"></i>
-                    To use Project Hypatia, connect via Google Gemini, xAI Grok, OpenAI, Anthropic, Ollama, or OpenRouter. Your key or OAuth subscription is stored locally.
+                    To use Project Hypatia, connect via Google Gemini, xAI Grok, OpenAI, Anthropic, Ollama, or OpenRouter. Your key or OAuth authorization is stored locally.
                 </div>
                 <div className="mb-3">
                     <label htmlFor="apiKeyInput" className="form-label visually-hidden">Gemini API Key</label>

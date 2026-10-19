@@ -1,0 +1,55 @@
+name: Sync verified Harness Lab publication
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  mirror:
+    name: mirror
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 ensures complete commit history and tags are present for mirroring
+          fetch-depth: 0
+          # Use GITHUB_TOKEN with write permission or secret if configured
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Verify Environment & Prerequisites
+        run: |
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Commit SHA: ${{ github.sha }}"
+
+      - name: Execute Mirror / Sync Step
+        env:
+          # Pass target repository URL or token if mirroring to external repo/branch
+          TARGET_REPO_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # If target mirror remote is configured via repository secret or environment
+          if [ -n "${{ secrets.TARGET_MIRROR_URL }}" ]; then
+            echo "Syncing to external mirror repository..."
+            git remote add target-mirror "${{ secrets.TARGET_MIRROR_URL }}" || true
+            git push --mirror target-mirror
+          else
+            echo "Target mirror URL not configured; validating local build and verified Harness deliverables..."
+            npm ci || npm install
+            npm run lint
+            npm run build
+            echo "Harness Lab publication verification passed successfully."
+          fi

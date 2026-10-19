@@ -3,6 +3,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useExperiment } from '../../services';
 import { useToast } from '../../toast';
 import { runLiteratureReviewAgent, parseGeminiError, extractJson } from '../../services';
+import { getFieldProfile } from '../../services/scientificFields';
 import { GeneratedOutput } from '../common/GeneratedOutput';
 import { AgenticAnalysisView } from '../common/AgenticAnalysisView';
 import { renderMarkdown } from '../../utils/markdownRenderer';
@@ -77,8 +78,35 @@ export const LiteratureReviewWorkspace = ({ onStepComplete }) => {
         
         try {
             const data = JSON.parse(extractJson(stepData.output));
+            const fieldProfile = getFieldProfile(activeExperiment?.field || 'Biology (General)');
             return (
                 <div className="lit-review-pro-view animate-in">
+                    {/* Domain & Literature Search Focus Banner */}
+                    <div className="mb-4 p-3 rounded-3 bg-black bg-opacity-50 border border-primary border-opacity-25 font-mono">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 pb-2 border-bottom border-secondary border-opacity-20">
+                            <div className="d-flex align-items-center gap-2">
+                                <span className="badge bg-primary bg-opacity-20 text-primary-glow border border-primary border-opacity-30 d-inline-flex align-items-center gap-1">
+                                    <i className="bi bi-mortarboard-fill me-1"></i>
+                                    {activeExperiment?.field || 'Biology (General)'}
+                                </span>
+                                <span className="text-white small fw-bold">{fieldProfile.category}</span>
+                            </div>
+                            <span className="badge bg-success bg-opacity-20 text-success border border-success border-opacity-30" style={{ fontSize: '0.7rem' }}>
+                                <i className="bi bi-check2-circle me-1"></i> Terminology &amp; Literature Filter Grounded
+                            </span>
+                        </div>
+                        <div className="row g-2 text-white-50 small" style={{ fontSize: '0.74rem' }}>
+                            <div className="col-12 col-md-6">
+                                <span className="text-primary-glow fw-bold d-block"><i className="bi bi-journal-text me-1"></i> Primary Indices Scanned:</span>
+                                <span>{fieldProfile.primaryDatabases.join(' • ')}</span>
+                            </div>
+                            <div className="col-12 col-md-6">
+                                <span className="text-info fw-bold d-block"><i className="bi bi-shield-check me-1"></i> Ontologies &amp; Nomenclature:</span>
+                                <span>{fieldProfile.preferredOntologies.join(' • ')}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="mb-4">
                         <h6 className="text-primary-glow fw-bold mb-3 ls-1 text-uppercase small">Synthesis Narrative</h6>
                         <div className="generated-text-container p-3 rounded bg-dark border border-secondary border-opacity-10" 

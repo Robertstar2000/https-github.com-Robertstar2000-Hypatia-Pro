@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { WaitlistModal } from './WaitlistModal';
-import { MifecoStripeModal } from './MifecoStripeModal';
 import { LLMProviderModal } from '../common/LLMProviderModal';
 import { getKeyStatus } from '../../services/api';
 import { getStoredLLMConfig, saveLLMConfig, MODEL_CAPABILITY_NOTICE } from '../../services/llmConfig';
@@ -20,7 +19,6 @@ import {
     ExternalLink, 
     Atom, 
     Play, 
-    CreditCard, 
     Cpu, 
     Server
 } from 'lucide-react';
@@ -34,7 +32,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
   const { addToast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [showWaitlist, setShowWaitlist] = useState(false);
-  const [showStripeModal, setShowStripeModal] = useState(false);
   const [showLLMModal, setShowLLMModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -241,14 +238,14 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 transition-colors"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Free Demo Entry</span>
+              <span>Explore Research Pipeline</span>
             </button>
             <button
-              onClick={() => setShowStripeModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-300 hover:text-white bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 transition-colors"
+              onClick={() => setShowLLMModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-cyan-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700 transition-colors"
             >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Mifeco Stripe Authority</span>
+              <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+              <span>LLM Provider Setup</span>
             </button>
           </div>
         </div>
@@ -274,7 +271,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
                     Studio Developer Testing Mode
                   </h4>
                   <p className="text-xs text-slate-300 mb-0">
-                    This option exists exclusively when running on Google AI Studio for developer testing. When engaged, it skips paid access (Stripe), skips Provide Your Own LLM, and skips API key entry, advancing directly to the application functionality and discovery pipeline.
+                    This option exists exclusively when running on Google AI Studio for developer testing. When engaged, it advances directly to the application functionality and autonomous discovery pipeline.
                   </p>
                 </div>
               </div>
@@ -318,23 +315,23 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
         {/* 2-Column Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           
-          {/* Left Column: Tiers & Access Methods */}
+          {/* Left Column: Research Access & Protocol Features */}
           <div className="lg:col-span-7 space-y-4">
             
-            {/* 1. Free Demo & BYO-LLM Card */}
+            {/* 1. Open Access Scientific Architecture Card */}
             <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/40 transition-all">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                    TIER 1: DEMO FREE
+                    OPEN RESEARCH PROTOCOL
                   </span>
-                  <span className="text-xs font-semibold text-white">Provide Your Own LLM</span>
+                  <span className="text-xs font-semibold text-white">Full Autonomous Pipeline</span>
                 </div>
-                <span className="text-xs font-mono text-cyan-400 font-bold">$0 / Free Forever</span>
+                <span className="text-xs font-mono text-cyan-400 font-bold">Standard Researcher Access</span>
               </div>
               
               <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                Full exploratory access to null hypothesis formulation, literature synthesis, and Monte Carlo datasets. Connect your own LLM provider API key or OAuth subscription.
+                Full exploratory access to null hypothesis formulation, literature synthesis across 80+ scientific fields, and in-silico Monte Carlo datasets. Connect your preferred LLM provider or operate with the autonomous emulation engine.
               </p>
 
               <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 mb-3 flex items-center justify-between">
@@ -360,7 +357,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
                   className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 active:scale-95 transition-all flex items-center justify-center gap-1.5 min-h-[38px]"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Launch Free Demo Mode</span>
+                  <span>Launch Research Pipeline</span>
                 </button>
 
                 <button
@@ -369,54 +366,45 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
                   className="py-2 px-3 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 min-h-[38px]"
                 >
                   <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Set LLM Provider (6 Options including Grok)</span>
+                  <span>Select LLM Provider (6 Engines)</span>
                 </button>
               </div>
             </div>
 
-            {/* 2. Mifeco Business Paid Access (Stripe Authority) Card */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-950/50 via-slate-900/90 to-purple-950/40 border border-indigo-500/35 hover:border-indigo-400/60 shadow-lg shadow-indigo-950/20 transition-all">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+            {/* 2. Scientific Core Architecture Capabilities */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-950/40 via-slate-900/90 to-purple-950/30 border border-indigo-500/30 transition-all">
+              <div className="flex items-center justify-between gap-2 mb-2">
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">
-                    TIER 2: MIFECO BUSINESS
+                    DISCOVERY CAPABILITIES
                   </span>
-                  <span className="text-xs font-semibold text-white">Stripe Authority Access</span>
+                  <span className="text-xs font-semibold text-white">Full-Stack Scientific Rigor</span>
                 </div>
-                <span className="text-xs font-mono text-indigo-300 font-bold">From $29 / month</span>
+                <span className="text-xs font-mono text-indigo-300">10 Coordinated Phases</span>
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed mb-3">
-                Institutional high-throughput reasoning authority. Managed cloud inference across Claude 3.7 Sonnet, GPT-4o, and Gemini 3.8 Pro with zero setup or personal keys required.
+                Automated multi-agent research architecture linking theoretical hypothesis ideation, double-blind cohort protocols, Monte Carlo kinetic modeling, inferential biostatistics, and academic publication dossiers.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-3 text-[11px] text-slate-300 font-mono">
                 <div className="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>Unlimited Monte Carlo Runs</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>In-Browser Monte Carlo Runs</span>
                 </div>
                 <div className="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   <span>Multi-Agent Peer Audits</span>
                 </div>
                 <div className="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   <span>Camera-Ready LaTeX & PDFs</span>
                 </div>
                 <div className="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>Stripe Invoicing & SLA</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>80+ Scientific Field Ontologies</span>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowStripeModal(true)}
-                className="w-full py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-md shadow-indigo-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 min-h-[40px]"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>Subscribe via Mifeco Stripe Authority</span>
-              </button>
             </div>
 
             {/* Protocol Summary Pill */}
@@ -427,7 +415,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
                 onClick={() => setShowWaitlist(true)}
                 className="text-slate-400 hover:text-white font-mono uppercase tracking-wider"
               >
-                Institutional Waitlist &raquo;
+                Institutional Inquiries &raquo;
               </button>
             </div>
 
@@ -644,7 +632,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
         {/* Footer info */}
         <div className="pt-6 mt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-mono text-slate-500">
           <span>Project Hypatia Pro • Autonomous Science Protocol</span>
-          <span>Mifeco Business Stripe Authority & Google AI Studio Integration</span>
+          <span>Open Access Scientific Discovery Architecture</span>
         </div>
 
       </div>
@@ -654,15 +642,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onAuthSuccess, onContinueAsG
         isOpen={showWaitlist} 
         onClose={() => setShowWaitlist(false)} 
         stackOrder={1} 
-      />
-
-      <MifecoStripeModal
-        isOpen={showStripeModal}
-        onClose={() => setShowStripeModal(false)}
-        initialEmail={formData.email}
-        onSuccess={(user) => {
-          onAuthSuccess(user);
-        }}
       />
 
       <LLMProviderModal

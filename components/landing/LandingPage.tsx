@@ -5,6 +5,8 @@ import { MODEL_CAPABILITY_NOTICE } from '../../services/llmConfig';
 import { ResearchSummary } from './ResearchSummary';
 import { SCIENTIFIC_FIELDS } from '../../config';
 import { LLMProviderModal } from '../common/LLMProviderModal';
+import { ScientificFieldSelector } from '../common/ScientificFieldSelector';
+import { getFieldProfile } from '../../services/scientificFields';
 
 interface LandingPageProps {
     setView: (view: string) => void;
@@ -15,7 +17,7 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogout }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [field, setField] = useState<string>('');
+    const [field, setField] = useState<string>('Biology (General)');
     const [experimentMode, setExperimentMode] = useState<'simulation' | 'physical'>('simulation');
     const [automationProtocol, setAutomationProtocol] = useState<'automated' | 'manual'>('automated');
     const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
@@ -24,6 +26,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
     const [keyStatus, setKeyStatus] = useState(getKeyStatus);
     const { addToast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const heroFieldProfile = useMemo(() => getFieldProfile(field), [field]);
     
     useEffect(() => {
         const handleUpdate = () => setKeyStatus(getKeyStatus());
@@ -48,28 +51,40 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
 
     const sampleTopics = [
         {
-            title: "Caffeine & Arabidopsis Thaliana Growth",
-            field: "Biology",
+            title: "Caffeine & Arabidopsis Thaliana Root Elongation",
+            field: "Molecular & Cellular Biology",
             mode: "simulation" as const,
-            desc: "Investigate the concentration-dependent inhibitory effects of exogenous caffeine on root elongation and hypocotyl growth in Arabidopsis thaliana."
+            desc: "Investigate concentration-dependent inhibitory effects of exogenous caffeine on root elongation and hypocotyl growth in Arabidopsis thaliana."
         },
         {
-            title: "Quantum Hall Conductance in Graphene",
-            field: "Physics",
+            title: "Quantum Hall Conductance & Edge States in Graphene",
+            field: "Quantum Physics & Quantum Optics",
             mode: "simulation" as const,
             desc: "Simulate topological edge states and Shubnikov-de Haas oscillations in monolayer graphene under high magnetic field regimes."
         },
         {
-            title: "Circadian Rhythm on Working Memory",
-            field: "Neuroscience",
+            title: "Circadian Rhythm Phase Shifts on Working Memory",
+            field: "Neuroscience & Neurobiology",
             mode: "physical" as const,
             desc: "Measure n-back cognitive accuracy across morning (08:00) vs. late night (23:00) cohorts controlling for sleep hygiene and caffeine intake."
         },
         {
-            title: "Microalgal Carbon Fixation Rates",
-            field: "Climate Science",
+            title: "Microalgal Carbon Fixation Rates under Thermal Stress",
+            field: "Climatology & Paleoclimate Dynamics",
             mode: "simulation" as const,
             desc: "Evaluate RuBisCO kinetic efficiency and photosynthetic biomass yields under elevated dissolved inorganic carbon and thermal stress conditions."
+        },
+        {
+            title: "Oncogenic KRAS G12D CRISPR Repression in Colorectal Cancer",
+            field: "Oncology & Cancer Biology",
+            mode: "simulation" as const,
+            desc: "Quantify downstream MAPK/ERK phosphorylation inhibition and apoptotic fraction following dCas9-KRAB targeted promoter silencing."
+        },
+        {
+            title: "Sparse Mixture-of-Experts Attention Routing Stability",
+            field: "Artificial Intelligence & Machine Learning",
+            mode: "simulation" as const,
+            desc: "Analyze token routing load balancing and entropy collapse across 64-expert transformer layers during extended context inference."
         }
     ];
 
@@ -314,23 +329,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
 
                         {/* Quick Configuration Grid: Field + Mode + Protocol */}
                         <div className="row g-2 mb-3">
-                            <div className="col-12 col-md-4">
-                                <label className="form-label text-white-50 small font-mono mb-1" style={{ fontSize: '0.75rem' }}>
-                                    Discipline / Field:
-                                </label>
-                                <select
+                            <div className="col-12 col-md-5">
+                                <ScientificFieldSelector
                                     value={field}
-                                    onChange={e => setField(e.target.value)}
-                                    className="form-select form-select-sm text-white bg-dark border-secondary border-opacity-25"
-                                    style={{ fontSize: '0.85rem', minHeight: '40px' }}
-                                >
-                                    <option value="">Select Field (Defaults to Biology)</option>
-                                    {SCIENTIFIC_FIELDS.map(f => (
-                                        <option key={f} value={f} className="bg-dark text-white">{f}</option>
-                                    ))}
-                                </select>
+                                    onChange={setField}
+                                    compact={true}
+                                    showProfileCard={false}
+                                    idPrefix="hero-quick-field"
+                                    label="Discipline / Field (80+ Disciplines)"
+                                />
+                                <div className="mt-1.5 p-2 rounded-2 bg-black bg-opacity-60 border border-secondary border-opacity-25 d-flex flex-wrap align-items-center justify-content-between gap-1 font-mono" style={{ fontSize: '0.72rem' }}>
+                                    <span className="text-primary-glow d-inline-flex align-items-center gap-1">
+                                        <i className="bi bi-book-half"></i>
+                                        <span>Corpus: {heroFieldProfile.primaryDatabases.slice(0, 3).join(', ')}</span>
+                                    </span>
+                                    <span className="text-white-50">
+                                        Ontology: <span className="text-info">{heroFieldProfile.preferredOntologies[0]?.split(' ')[0] || 'Standard'}</span>
+                                    </span>
+                                </div>
                             </div>
-                            <div className="col-6 col-md-4">
+                            <div className="col-6 col-md-3">
                                 <label className="form-label text-white-50 small font-mono mb-1" style={{ fontSize: '0.75rem' }}>
                                     Execution Mode:
                                 </label>
@@ -488,10 +506,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                 onClick={() => setView('auth')}
                                 className="btn btn-outline-secondary btn-sm px-2.5 py-1 text-white border-opacity-25 hover-border-primary d-flex align-items-center gap-1.5 font-mono"
                                 style={{ fontSize: '0.78rem' }}
-                                title="Sign in, Demo Free, or Mifeco Business Stripe Authority"
+                                title="Sign in or Access Researcher Account"
                             >
                                 <i className="bi bi-person-badge text-primary-glow"></i>
-                                <span>Sign In / Authority</span>
+                                <span>Sign In / Access</span>
                             </button>
                             <span className="badge bg-dark border border-secondary border-opacity-25 text-white-50 font-mono px-2 py-1">
                                 Phase 01 of 10
@@ -532,7 +550,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                     )}
                                 </div>
                                 <div className="text-white-50 small mt-0.5" style={{ fontSize: '0.78rem' }}>
-                                    Multi-model autonomous reasoning with custom keys or OAuth subscriptions.
+                                    Multi-model autonomous reasoning across scientific literature, hypothesis derivation, and simulation.
                                 </div>
                             </div>
                         </div>
@@ -545,17 +563,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                 style={{ minHeight: '36px' }}
                             >
                                 <i className="bi bi-key-fill text-primary-glow"></i>
-                                <span>Enter Your Own Key / LLM Provider</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setView('auth')}
-                                className="btn btn-outline-secondary btn-sm px-2.5 py-1.5 d-flex align-items-center gap-1.5 text-white-50 border-opacity-25 hover-border-primary"
-                                style={{ minHeight: '36px', fontSize: '0.78rem' }}
-                                title="Mifeco Business Stripe Authority Access"
-                            >
-                                <i className="bi bi-stripe text-indigo-400"></i>
-                                <span>Stripe Authority</span>
+                                <span>LLM Provider &amp; Model Settings</span>
                             </button>
                         </div>
                     </div>
@@ -715,22 +723,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                 />
                             </div>
 
-                            <div className="col-12 col-md-4">
-                                <label className="form-label text-white-50 small font-mono fw-bold text-uppercase mb-1">
-                                    03. Scientific Field
-                                </label>
-                                <select
+                            <div className="col-12 col-md-5">
+                                <ScientificFieldSelector
                                     value={field}
-                                    onChange={e => setField(e.target.value)}
-                                    required
-                                    className="form-select form-select-lg text-white"
-                                    style={{ fontSize: '1rem', minHeight: '48px' }}
-                                >
-                                    <option value="" disabled>Select Discipline</option>
-                                    {SCIENTIFIC_FIELDS.map(f => (
-                                        <option key={f} value={f} className="bg-dark text-white">{f}</option>
-                                    ))}
-                                </select>
+                                    onChange={setField}
+                                    compact={false}
+                                    showProfileCard={true}
+                                    idPrefix="full-form-field"
+                                    label="03. Scientific Field & Terminology Focus"
+                                    required={true}
+                                />
                             </div>
                         </div>
 

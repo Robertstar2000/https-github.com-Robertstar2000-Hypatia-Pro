@@ -184,7 +184,7 @@ export const GeneratedOutput: React.FC<GeneratedOutputProps> = ({
                                 <input
                                     type="text"
                                     className="form-control bg-dark border-secondary text-white small"
-                                    placeholder="E.g., 'Focus on counter-intuitive mechanisms' or 'Prioritize low-cost methods'"
+                                    placeholder="E.g., 'Focus on counter-intuitive mechanisms' or 'Prioritize high-yield empirical methods'"
                                     value={guidanceInput}
                                     onChange={(e) => setGuidanceInput(e.target.value)}
                                     style={{fontSize: '0.9rem'}}

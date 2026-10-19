@@ -53,6 +53,19 @@ const lightenExperiment = (exp: Experiment): Experiment => {
     return lightExp;
 };
 
+// Deduplicates experiment lists by their unique ID to prevent identical keys in React tree
+const dedupeExperiments = (list: Experiment[]): Experiment[] => {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set<string>();
+    return list.filter(exp => {
+        if (!exp) return false;
+        const key = String(exp.id || '');
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+};
+
 /**
  * @component App
  * The root component that manages the overall application state, routing, and global context.
@@ -151,7 +164,7 @@ export const App = () => {
                 const storedExperiments = await db.experiments.orderBy('createdAt').reverse().toArray();
                 
                 if (isMounted) {
-                    setExperiments(storedExperiments ? storedExperiments.map(lightenExperiment) : []);
+                    setExperiments(storedExperiments ? dedupeExperiments(storedExperiments.map(lightenExperiment)) : []);
                 }
                 
                 // Auto-detect environment key
@@ -236,7 +249,13 @@ export const App = () => {
         }
     }, []);
 
-    const createNewExperiment = useCallback(async (title: string, description: string, field: string, experimentMode: 'simulation' | 'physical') => {
+    const createNewExperiment = useCallback(async (
+        title: string, 
+        description: string, 
+        field: string, 
+        experimentMode: 'simulation' | 'physical',
+        automationMode?: 'manual' | 'automated' | null
+    ) => {
         const newId = `exp_${Date.now()}`;
         const newExperiment: Experiment = {
             id: newId,
@@ -254,7 +273,7 @@ export const App = () => {
             fineTuneSettings: {},
             createdAt: new Date().toISOString(),
             labNotebook: '',
-            automationMode: null,
+            automationMode: automationMode ?? null,
             experimentMode,
             status: 'active',
         };
@@ -262,7 +281,7 @@ export const App = () => {
         try {
             await db.experiments.add(newExperiment);
             // Update list with lightweight version to save memory
-            setExperiments(prev => [lightenExperiment(newExperiment), ...prev]);
+            setExperiments(prev => dedupeExperiments([lightenExperiment(newExperiment), ...prev]));
             // Set active with full version
             setActiveExperiment(newExperiment);
             setView('experiment');
@@ -290,7 +309,7 @@ export const App = () => {
             
             // Reload list with memory optimization
             const storedExperiments = await db.experiments.orderBy('createdAt').reverse().toArray();
-            setExperiments(storedExperiments.map(lightenExperiment));
+            setExperiments(dedupeExperiments(storedExperiments.map(lightenExperiment)));
             
             addToastRef.current(`Project imported successfully.`, 'success');
         } catch(error) {
@@ -307,7 +326,7 @@ export const App = () => {
             await db.experiments.put(experimentWithTimestamp);
             
             // 2. Update the LIST state with LIGHTWEIGHT version (Memory Protection)
-            setExperiments(prev => prev.map(e => e.id === experimentWithTimestamp.id ? lightenExperiment(experimentWithTimestamp) : e));
+            setExperiments(prev => dedupeExperiments(prev.map(e => e.id === experimentWithTimestamp.id ? lightenExperiment(experimentWithTimestamp) : e)));
             
             // 3. Update the ACTIVE state with FULL version via functional update (eliminates dependency on activeExperiment)
             setActiveExperiment(prev => prev?.id === experimentWithTimestamp.id ? experimentWithTimestamp : prev);
@@ -377,6 +396,71 @@ export const App = () => {
         addToastRef.current("Signed out. Session has been invalidated.", "info");
     }, []);
 
+    // Cleanly advance to application functionality and begin 10-phase pipeline
+    const handleAdvanceToPipeline = useCallback(async (authenticatedUser?: any) => {
+        if (authenticatedUser) {
+            setUser(authenticatedUser);
+            try {
+                localStorage.setItem('hmap-current-user', JSON.stringify(authenticatedUser));
+            } catch {}
+        }
+
+        // Inform user of model capability requirements
+        addToastRef.current(
+            "Model Requirement: The chosen LLM model needs to have high-level reasoning, scientific and technical knowledge and be able to generate images, figures, tables and drawings.",
+            "info"
+        );
+
+        try {
+            if (activeExperiment) {
+                setView('experiment');
+                return;
+            }
+
+            const stored = await db.experiments.orderBy('createdAt').reverse().toArray();
+            if (stored && stored.length > 0) {
+                const fullExp = await db.experiments.get(stored[0].id);
+                if (fullExp) {
+                    setActiveExperiment(fullExp);
+                    setView('experiment');
+                    addToastRef.current(`Advancing to pipeline: "${fullExp.title}"`, 'success');
+                    return;
+                }
+            }
+
+            // Create initial protocol project to begin Phase 1 immediately
+            const newExpId = `exp_${Date.now()}`;
+            const initialExperiment: Experiment = {
+                id: newExpId,
+                title: "Autonomous Scientific Discovery Protocol",
+                description: "Multi-phase empirical investigation protocol with autonomous hypothesis testing, literature meta-synthesis, and Monte Carlo simulation.",
+                field: "Biology",
+                currentStep: 1,
+                stepData: {
+                    1: {
+                        input: "Formulate empirical null hypothesis and establish methodological boundary conditions.",
+                        history: [],
+                        provenance: [],
+                    }
+                },
+                fineTuneSettings: {},
+                createdAt: new Date().toISOString(),
+                labNotebook: '',
+                automationMode: null,
+                experimentMode: 'simulation',
+                status: 'active',
+            };
+            await db.experiments.add(initialExperiment);
+            setExperiments(prev => dedupeExperiments([lightenExperiment(initialExperiment), ...prev]));
+            setActiveExperiment(initialExperiment);
+            setView('experiment');
+            addToastRef.current("Discovery protocol active. Beginning Phase 1.", 'success');
+        } catch (err) {
+            console.error("Failed to begin pipeline:", err);
+            setView('experiment');
+        }
+    }, [activeExperiment]);
+
     // Memoized context value prevents unnecessary re-rendering of entire component tree
     const contextValue = React.useMemo(() => ({
         experiments,
@@ -423,25 +507,20 @@ export const App = () => {
     }
 
     if (view === 'auth') {
-        return <AuthView onAuthSuccess={(u) => { setUser(u); setView('landing'); }} />;
+        return (
+            <AuthView 
+                onAuthSuccess={(u) => handleAdvanceToPipeline(u)} 
+                onContinueAsGuest={() => handleAdvanceToPipeline()}
+            />
+        );
     }
 
     // Protected Route Guard: accessing dashboard or active workspace requires session
     if ((view === 'experiment' || view === 'dashboard') && !user) {
         return (
             <AuthView 
-                onAuthSuccess={(u) => { setUser(u); }} 
-                onContinueAsGuest={() => {
-                    const guestUser = { 
-                        id: `guest_${Date.now()}`, 
-                        username: 'Guest Researcher', 
-                        email: 'guest@hypatia.pro', 
-                        role: 'Guest Investigator', 
-                        tier: 'free_byo_llm' 
-                    };
-                    setUser(guestUser);
-                    localStorage.setItem('hmap-current-user', JSON.stringify(guestUser));
-                }}
+                onAuthSuccess={(u) => handleAdvanceToPipeline(u)} 
+                onContinueAsGuest={() => handleAdvanceToPipeline()}
             />
         );
     }

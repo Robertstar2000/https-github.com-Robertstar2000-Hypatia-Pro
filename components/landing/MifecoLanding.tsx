@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useToast } from '../../toast';
 import { useExperiment } from '../../services';
 import { getStoredLLMConfig, saveLLMConfig } from '../../services/llmConfig';
@@ -78,7 +78,17 @@ export const MifecoLanding: React.FC<MifecoLandingProps> = ({
     }
   };
 
-  const recentExperiments = Array.isArray(experiments) ? experiments.slice(0, 3) : [];
+  const recentExperiments = useMemo(() => {
+    if (!Array.isArray(experiments)) return [];
+    const seen = new Set<string>();
+    return experiments.filter(e => {
+        if (!e) return false;
+        const k = String(e.id || '');
+        if (!k || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+    }).slice(0, 3);
+  }, [experiments]);
 
   return (
     <div className="min-h-screen bg-[#07090e] text-[#f8fafc] flex flex-col justify-between selection:bg-cyan-500/30 selection:text-cyan-200">
@@ -328,9 +338,9 @@ export const MifecoLanding: React.FC<MifecoLandingProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {recentExperiments.map((exp) => (
+              {recentExperiments.map((exp, idx) => (
                 <div 
-                  key={exp.id}
+                  key={`${exp.id || 'exp'}-${idx}`}
                   onClick={() => selectExperiment(exp.id)}
                   className="p-3.5 rounded-xl bg-slate-950/60 hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700 cursor-pointer transition-all flex flex-col justify-between group"
                 >

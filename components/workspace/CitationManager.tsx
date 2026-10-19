@@ -212,8 +212,8 @@ export const CitationManager = ({ isOpen, onClose }: { isOpen: boolean; onClose:
                     </div>
                 ) : (
                     <div className="d-flex flex-column gap-3">
-                        {filteredCitations.map(cit => (
-                            <div key={cit.id} className="card bg-dark border-secondary p-3 shadow-sm position-relative">
+                        {filteredCitations.map((cit, cIdx) => (
+                            <div key={`${cit.id || 'cit'}-${cIdx}`} className="card bg-dark border-secondary p-3 shadow-sm position-relative">
                                 <div className="d-flex justify-content-between align-items-start mb-1 pe-4">
                                     <h6 className="mb-0 text-white fw-semibold">{cit.title}</h6>
                                 </div>

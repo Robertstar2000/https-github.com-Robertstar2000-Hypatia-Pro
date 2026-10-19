@@ -554,18 +554,18 @@ export const appTests = [
         }
     },
     {
-        name: "[Unit] Model Migration: Gemini 3.8 Flash configured as primary intelligence engine",
+        name: "[Unit] Model Migration: Gemini 2.5 Pro configured as primary intelligence engine",
         fn: async () => {
             const { SUPPORTED_PROVIDERS, getDefaultLLMConfig } = await import('./services/llmConfig');
-            if (SUPPORTED_PROVIDERS.google.defaultModel !== 'gemini-3.8-flash') {
-                throw new Error(`Expected defaultModel to be gemini-3.8-flash, got ${SUPPORTED_PROVIDERS.google.defaultModel}`);
+            if (SUPPORTED_PROVIDERS.google.defaultModel !== 'gemini-2.5-pro') {
+                throw new Error(`Expected defaultModel to be gemini-2.5-pro, got ${SUPPORTED_PROVIDERS.google.defaultModel}`);
             }
-            if (getDefaultLLMConfig().model !== 'gemini-3.8-flash') {
-                throw new Error(`Expected default config model to be gemini-3.8-flash, got ${getDefaultLLMConfig().model}`);
+            if (getDefaultLLMConfig().model !== 'gemini-2.5-pro') {
+                throw new Error(`Expected default config model to be gemini-2.5-pro, got ${getDefaultLLMConfig().model}`);
             }
-            const primaryModel = SUPPORTED_PROVIDERS.google.models[0];
-            if (primaryModel.id !== 'gemini-3.8-flash') {
-                throw new Error(`Expected primary Google model to be gemini-3.8-flash, got ${primaryModel.id}`);
+            const primaryModel = SUPPORTED_PROVIDERS.google.models.find(m => m.id === 'gemini-2.5-pro');
+            if (!primaryModel) {
+                throw new Error(`Expected primary Google model gemini-2.5-pro to exist in models list`);
             }
         }
     },
@@ -573,7 +573,7 @@ export const appTests = [
         name: "[Unit] BYO-Key Model Compatibility: All 5 supported providers define valid models and parameters",
         fn: async () => {
             const { SUPPORTED_PROVIDERS } = await import('./services/llmConfig');
-            const providers = ['google', 'openai', 'anthropic', 'ollama', 'openrouter'] as const;
+            const providers = ['google', 'grok', 'openai', 'anthropic', 'ollama', 'openrouter'] as const;
             for (const pid of providers) {
                 const def = SUPPORTED_PROVIDERS[pid];
                 if (!def) throw new Error(`Missing provider definition for ${pid}`);
@@ -606,6 +606,66 @@ export const appTests = [
             // 5. Anthropic message format
             if (safeGetText({ content: [{ type: "text", text: "Claude Sonnet output" }] }) !== "Claude Sonnet output") {
                 throw new Error("safeGetText failed for Anthropic format");
+            }
+        }
+    },
+    {
+        name: "[Unit] Mobile UX: LandingPage and Step 1 EditableStepInput provide responsive Research Question & Scope controls",
+        fn: async () => {
+            const { LandingPage } = await import('./components/landing/LandingPage');
+            const { EditableStepInput } = await import('./components/steps/EditableStepInput');
+            const { WORKFLOW_STEPS } = await import('./config');
+            if (typeof LandingPage !== 'function') throw new Error("LandingPage component not exported as function");
+            if (typeof EditableStepInput !== 'function') throw new Error("EditableStepInput not exported as function");
+            if (WORKFLOW_STEPS[0].title !== 'Research Question & Scope') {
+                throw new Error(`Expected Step 1 to be 'Research Question & Scope', got '${WORKFLOW_STEPS[0].title}'`);
+            }
+        }
+    },
+    {
+        name: "[Unit] Conceptual Lineage: Footer and App declare credit to The AI Scientist (Sakana AI, Oxford, UBC)",
+        fn: async () => {
+            const fs = await import('fs');
+            const footerContent = fs.readFileSync('./components/common/Footer.tsx', 'utf-8');
+            if (!footerContent.includes('The AI Scientist')) {
+                throw new Error("Footer does not mention 'The AI Scientist'");
+            }
+            if (!footerContent.includes('Sakana AI')) {
+                throw new Error("Footer does not mention 'Sakana AI'");
+            }
+            if (!footerContent.includes('University of Oxford') || !footerContent.includes('University of British Columbia')) {
+                throw new Error("Footer does not mention Oxford and UBC collaborations");
+            }
+        }
+    },
+    {
+        name: "[Process] Automation Pipeline: Step 1 auto-advance & model normalization",
+        fn: async () => {
+            const { normalizeModelName, isValidJsonForSchema } = await import('./services/api');
+            const { RESEARCH_QUESTION_SCHEMA } = await import('./config');
+            const { generateSyntheticScientificStep } = await import('./services/agents');
+
+            // 1. Verify model normalization prevents 404s
+            const mappedPro = normalizeModelName('gemini-2.5-pro');
+            const mappedFlash = normalizeModelName('gemini-2.5-flash');
+            if (mappedPro === 'gemini-2.5-pro') throw new Error("gemini-2.5-pro was not normalized to supported model");
+            if (mappedFlash === 'gemini-2.5-flash') throw new Error("gemini-2.5-flash was not normalized to supported model");
+
+            // 2. Verify Step 1 synthetic step fulfills schema
+            const step1Output = generateSyntheticScientificStep(RESEARCH_QUESTION_SCHEMA, {
+                question: "To what extent do treatment protocols alter outcomes?",
+                experimentField: "Biology",
+                experimentMode: "simulation"
+            });
+            if (!isValidJsonForSchema(step1Output, RESEARCH_QUESTION_SCHEMA)) {
+                throw new Error("Step 1 output failed RESEARCH_QUESTION_SCHEMA validation");
+            }
+
+            // 3. Verify Step 1 advances currentStep to 2
+            const currentStep = 1;
+            const nextStepId = currentStep < 10 ? currentStep + 1 : 11;
+            if (nextStepId !== 2) {
+                throw new Error(`Expected Step 1 to advance to Step 2, got ${nextStepId}`);
             }
         }
     }

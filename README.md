@@ -44,6 +44,8 @@
 
 Project Hypatia Pro is your digital lab partner, an AI-powered platform designed to assist researchers, students, and citizen scientists throughout the entire scientific discovery process. It provides a structured, 10-step workflow, leveraging the Google Gemini API to streamline every stage of research, from question formulation to a publication-ready draft.
 
+> **Conceptual Attribution**: The idea behind this app is credited to **"The AI Scientist,"** developed by Tokyo-based startup **Sakana AI**. Created in collaboration with researchers from the **University of Oxford** and the **University of British Columbia**.
+
 ---
 
 ## Key Features

@@ -57,6 +57,15 @@ export const HelpModal = ({ onClose }) => {
                             </button>
                         ))}
                     </div>
+                    <div className="px-3 py-2 mx-3 my-2 rounded-3 bg-dark bg-opacity-60 border border-secondary border-opacity-30">
+                        <div className="d-flex align-items-center gap-1.5 mb-1 text-primary-glow font-mono" style={{ fontSize: '0.68rem', letterSpacing: '0.04em' }}>
+                            <i className="bi bi-mortarboard-fill"></i>
+                            <span className="fw-bold text-uppercase">Academic Credit</span>
+                        </div>
+                        <p className="text-white-50 mb-0" style={{ fontSize: '0.7rem', lineHeight: '1.4' }}>
+                            Idea credited to <strong className="text-white">"The AI Scientist,"</strong> developed by Tokyo-based startup <strong className="text-primary-glow">Sakana AI</strong>, in collaboration with researchers from the <strong className="text-white">University of Oxford</strong> and the <strong className="text-white">University of British Columbia</strong>.
+                        </p>
+                    </div>
                     <div className="px-3 mt-auto help-close-wrapper">
                         <button className="help-close-btn w-100" onClick={onClose}>
                             <i className="bi bi-x-lg me-2"></i> CLOSE

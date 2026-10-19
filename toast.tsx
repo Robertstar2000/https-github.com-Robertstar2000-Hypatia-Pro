@@ -9,9 +9,11 @@ interface ToastProviderProps {
 
 export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     const [toasts, setToasts] = useState<any[]>([]);
+    const toastCounter = React.useRef(0);
 
     const addToast = useCallback((message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'success') => {
-        const id = Date.now();
+        toastCounter.current += 1;
+        const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${toastCounter.current}`;
         setToasts(prev => [...prev, { id, message, type }]);
         setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== id));
@@ -24,8 +26,8 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         <ToastContext.Provider value={contextValue}>
             {children}
             <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{zIndex: 30000}}>
-                {toasts.map(toast => (
-                    <div key={toast.id} className={`toast show bg-${toast.type} text-white`} role="alert" aria-live="assertive" aria-atomic="true">
+                {toasts.map((toast, idx) => (
+                    <div key={`${toast.id || 'toast'}-${idx}`} className={`toast show bg-${toast.type} text-white`} role="alert" aria-live="assertive" aria-atomic="true">
                         <div className="toast-body">{toast.message}</div>
                     </div>
                 ))}

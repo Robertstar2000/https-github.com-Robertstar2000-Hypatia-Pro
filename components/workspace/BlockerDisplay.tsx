@@ -30,8 +30,8 @@ export const BlockerDisplay: React.FC<BlockerDisplayProps> = ({
                 </div>
                 <div className="card-body p-0">
                     <ul className="list-group list-group-flush">
-                        {blockers.map((blocker) => (
-                            <li key={blocker.id} className={`list-group-item bg-transparent border-secondary border-opacity-10 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between p-3 gap-2 ${blocker.resolved ? 'opacity-50' : ''}`}>
+                        {blockers.map((blocker, bIdx) => (
+                            <li key={`${blocker.id || 'blk'}-${bIdx}`} className={`list-group-item bg-transparent border-secondary border-opacity-10 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between p-3 gap-2 ${blocker.resolved ? 'opacity-50' : ''}`}>
                                 <div className="d-flex align-items-start gap-2 flex-grow-1">
                                     <div className={`me-2 text-${blocker.severity === 'critical' ? 'danger' : 'warning'} mt-0.5`}>
                                         <i className={`bi ${blocker.resolved ? 'bi-check-circle-fill text-success' : 'bi-exclamation-circle-fill'} fs-5`}></i>

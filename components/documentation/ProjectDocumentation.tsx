@@ -22,8 +22,8 @@ export const ProjectDocumentation = () => {
             <div className="container py-5">
                 <h2 className="text-center mb-4">Select a project to view its artifacts</h2>
                 <div className="row g-4">
-                    {experiments.map(exp => (
-                        <div key={exp.id} className="col-md-4">
+                    {experiments.map((exp, idx) => (
+                        <div key={`${exp.id || 'exp'}-${idx}`} className="col-md-4">
                             <div className="card bg-dark border-secondary h-100 p-3">
                                 <h5>{exp.title}</h5>
                                 <p className="text-white-50 small">{exp.description}</p>

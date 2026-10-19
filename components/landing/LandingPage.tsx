@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useToast } from '../../toast';
 import { useExperiment, getKeyStatus, callGeminiWithRetry, safeGetText } from '../../services';
+import { MODEL_CAPABILITY_NOTICE } from '../../services/llmConfig';
 import { ResearchSummary } from './ResearchSummary';
 import { SCIENTIFIC_FIELDS } from '../../config';
 import { LLMProviderModal } from '../common/LLMProviderModal';
@@ -16,6 +17,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
     const [description, setDescription] = useState('');
     const [field, setField] = useState<string>('');
     const [experimentMode, setExperimentMode] = useState<'simulation' | 'physical'>('simulation');
+    const [automationProtocol, setAutomationProtocol] = useState<'automated' | 'manual'>('automated');
     const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
     const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
     const [showLLMModal, setShowLLMModal] = useState(false);
@@ -32,7 +34,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
     const { createNewExperiment, experiments, selectExperiment, deleteExperiment } = useExperiment();
 
     const savedProjects = useMemo(() => {
-        return Array.isArray(experiments) ? experiments.slice(0, 4) : [];
+        if (!Array.isArray(experiments)) return [];
+        const seen = new Set<string>();
+        const unique = experiments.filter(e => {
+            if (!e) return false;
+            const key = String(e.id || '');
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        return unique.slice(0, 4);
     }, [experiments]);
 
     const sampleTopics = [
@@ -70,28 +81,48 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
         addToast(`Loaded preset protocol: "${sample.title}"`, 'info');
     };
 
+    const handleQuickStart = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        
+        if (!description.trim()) {
+            addToast("Please enter a research question or inquiry scope to get started.", "warning");
+            const ta = (document.getElementById('mobile-research-question-textarea') || document.getElementById('research-question-textarea')) as HTMLTextAreaElement;
+            if (ta) ta.focus();
+            return;
+        }
+
+        const effectiveField = field || 'Biology';
+        const effectiveMode = experimentMode || 'simulation';
+        const cleanFirstLine = description.trim().split('\n')[0].replace(/^#+\s*/, '').replace(/^[0-9.]+\s*/, '').trim();
+        const effectiveTitle = title.trim() || (cleanFirstLine.length > 5 ? cleanFirstLine.slice(0, 75) : `Investigation: ${effectiveField} Protocol`);
+
+        try {
+            await createNewExperiment(effectiveTitle, description.trim(), effectiveField, effectiveMode, automationProtocol);
+            addToast("Research question & scope initialized. Launching Phase 01...", "success");
+            setView('experiment');
+        } catch (err) {
+            console.error("Failed to initialize project from quick start:", err);
+            addToast("Error initializing project. Please check local database storage.", "danger");
+        }
+    };
+
     const handleStart = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!title.trim()) {
-            addToast("Please enter a research project title.", "warning");
-            return;
-        }
         if (!description.trim()) {
-            addToast("Please describe your research question or idea.", "warning");
-            return;
-        }
-        if (!field) {
-            addToast("Please select a primary scientific field.", "warning");
-            return;
-        }
-        if (!experimentMode) {
-            addToast("Please choose an experimental execution mode.", "warning");
+            addToast("Please describe your research question or idea to get started.", "warning");
+            const el = document.getElementById('research-question-scope-entry');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
         
+        const effectiveField = field || 'Biology';
+        const effectiveMode = experimentMode || 'simulation';
+        const cleanFirstLine = description.trim().split('\n')[0].replace(/^#+\s*/, '').replace(/^[0-9.]+\s*/, '').trim();
+        const effectiveTitle = title.trim() || (cleanFirstLine.length > 5 ? cleanFirstLine.slice(0, 75) : `Investigation: ${effectiveField} Protocol`);
+        
         try {
-            await createNewExperiment(title.trim(), description.trim(), field, experimentMode);
+            await createNewExperiment(effectiveTitle, description.trim(), effectiveField, effectiveMode, automationProtocol);
             setView('experiment');
         } catch (err) {
             console.error("Failed to initialize project:", err);
@@ -120,7 +151,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                     throw new Error("Uploaded file appears to be empty.");
                 }
 
-                addToast(`Analyzing ${file.name} context with Gemini...`, "info");
+                addToast(`Analyzing ${file.name} context with AI...`, "info");
 
                 const prompt = `
                     ACT AS: Senior Scientific Research Analyst.
@@ -133,7 +164,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                     Provide a concise, bulleted factual synthesis to append to the project brief. Do NOT output markdown code blocks or greeting text.
                 `;
 
-                const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
+                const response = await callGeminiWithRetry('', { contents: prompt });
                 const extractedText = safeGetText(response);
                 
                 setDescription(prev => {
@@ -171,22 +202,197 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
     };
 
     return (
-        <div className="container py-2 py-md-4" style={{ maxWidth: '1080px' }}>
+        <div className="container py-2 py-md-4 pb-5 pb-md-4" style={{ maxWidth: '1080px' }}>
             
             {/* Hero Header Section */}
-            <section className="text-center py-4 py-md-5 mb-2">
-                <div className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-dark border border-secondary border-opacity-25 text-white-50 small font-mono mb-3 shadow-sm">
-                    <i className="bi bi-cpu-fill text-primary-glow"></i>
-                    <span>MIFECO SCIENTIFIC RESEARCH ARCHITECTURE</span>
+            <section className="text-center py-3 py-md-5 mb-2">
+                <div className="d-flex flex-wrap align-items-center justify-content-center gap-2 mb-3">
+                    <div className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-dark border border-secondary border-opacity-25 text-white-50 small font-mono shadow-sm">
+                        <i className="bi bi-cpu-fill text-primary-glow"></i>
+                        <span>MIFECO SCIENTIFIC RESEARCH ARCHITECTURE</span>
+                    </div>
+                    <div className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-dark border border-secondary border-opacity-25 text-white-50 small font-mono shadow-sm">
+                        <i className="bi bi-mortarboard-fill text-primary-glow"></i>
+                        <span>Idea Credited to <strong>"The AI Scientist"</strong> (Sakana AI &middot; Oxford &middot; UBC)</span>
+                    </div>
                 </div>
 
-                <h1 className="display-5 fw-bold text-white mb-3" style={{ letterSpacing: '-0.02em' }}>
+                <h1 className="display-5 fw-bold text-white mb-2" style={{ letterSpacing: '-0.02em' }}>
                     Autonomous Scientific <span className="text-primary-glow">Discovery Platform</span>
                 </h1>
 
-                <p className="lead text-white-50 mx-auto mb-4" style={{ maxWidth: '760px', fontSize: '1.05rem', lineHeight: '1.6' }}>
+                <p className="lead text-white-50 mx-auto mb-4" style={{ maxWidth: '760px', fontSize: '1rem', lineHeight: '1.5' }}>
                     Formulate falsifiable hypotheses, synthesize peer-reviewed literature, execute Monte Carlo or bench protocols, and author camera-ready scientific manuscripts with multi-agent verification.
                 </p>
+
+                {/* Instant Mobile & Desktop Quick-Start: Research Question & Scope Card */}
+                <div id="mobile-research-scope-card" className="card border-primary-glow border-opacity-40 bg-dark bg-opacity-75 shadow-lg mb-4 text-start rounded-3 overflow-hidden mx-auto" style={{ maxWidth: '780px' }}>
+                    <div className="card-header bg-black bg-opacity-40 border-bottom border-secondary border-opacity-25 py-2.5 px-3 px-md-4">
+                        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div className="d-flex align-items-center gap-2">
+                                <span className="badge bg-primary-glow text-dark font-mono px-2 py-0.5 fw-bold" style={{ fontSize: '0.72rem' }}>
+                                    STEP 01
+                                </span>
+                                <span className="fw-bold text-white small font-mono text-uppercase">
+                                    Research Question &amp; Methodological Scope
+                                </span>
+                            </div>
+                            <span className="badge bg-success bg-opacity-20 text-success border border-success border-opacity-25 font-mono" style={{ fontSize: '0.68rem' }}>
+                                <i className="bi bi-phone me-1"></i> Mobile Ready
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="card-body p-3 p-md-4">
+                        <p className="text-white-50 small mb-2" style={{ fontSize: '0.84rem', lineHeight: '1.45' }}>
+                            Formulate your core scientific question, dependent/independent variables, or testable hypothesis to immediately launch your investigation:
+                        </p>
+
+                        {/* Mobile Quick-Insert Parameter Snippets */}
+                        <div className="mb-2">
+                            <div className="d-flex align-items-center justify-content-between mb-1.5 flex-wrap gap-1">
+                                <span className="text-white-50 font-mono" style={{ fontSize: '0.72rem' }}>
+                                    <i className="bi bi-magic text-primary-glow me-1"></i> Quick Scope Builders:
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectSample(sampleTopics[0])}
+                                    className="btn btn-link btn-xs text-info p-0 font-mono text-decoration-none"
+                                    style={{ fontSize: '0.72rem' }}
+                                >
+                                    <i className="bi bi-lightning-charge me-1"></i> Load Sample Question
+                                </button>
+                            </div>
+                            <div className="d-flex flex-wrap gap-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Independent Variable: \nDependent Variable: ")}
+                                    className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                    style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                >
+                                    + Variables (IV/DV)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Hypothesized Mechanism: ")}
+                                    className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                    style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                >
+                                    + Mechanism
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Control Group & Baseline Conditions: ")}
+                                    className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                    style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                >
+                                    + Control Conditions
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Target Sample Size (N) & Demographics: ")}
+                                    className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                    style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                >
+                                    + Sample Size (N)
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Textarea */}
+                        <div className="mb-3">
+                            <textarea
+                                id="mobile-research-question-textarea"
+                                value={description}
+                                onChange={e => setDescription(e.target.value)}
+                                placeholder="Detail your scientific research question, hypothesized mechanisms, variables, and empirical boundaries..."
+                                rows={4}
+                                className="form-control font-mono text-white bg-black bg-opacity-40 border-secondary border-opacity-25"
+                                style={{ fontSize: '1rem', lineHeight: '1.5', minHeight: '110px' }}
+                            />
+                        </div>
+
+                        {/* Quick Configuration Grid: Field + Mode + Protocol */}
+                        <div className="row g-2 mb-3">
+                            <div className="col-12 col-md-4">
+                                <label className="form-label text-white-50 small font-mono mb-1" style={{ fontSize: '0.75rem' }}>
+                                    Discipline / Field:
+                                </label>
+                                <select
+                                    value={field}
+                                    onChange={e => setField(e.target.value)}
+                                    className="form-select form-select-sm text-white bg-dark border-secondary border-opacity-25"
+                                    style={{ fontSize: '0.85rem', minHeight: '40px' }}
+                                >
+                                    <option value="">Select Field (Defaults to Biology)</option>
+                                    {SCIENTIFIC_FIELDS.map(f => (
+                                        <option key={f} value={f} className="bg-dark text-white">{f}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="col-6 col-md-4">
+                                <label className="form-label text-white-50 small font-mono mb-1" style={{ fontSize: '0.75rem' }}>
+                                    Execution Mode:
+                                </label>
+                                <div className="btn-group w-100" role="group">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExperimentMode('simulation')}
+                                        className={`btn btn-sm ${experimentMode === 'simulation' ? 'btn-primary text-dark fw-bold' : 'btn-outline-secondary text-white-50'} py-2`}
+                                        style={{ fontSize: '0.8rem', minHeight: '40px' }}
+                                    >
+                                        <i className="bi bi-cpu me-1"></i> Simulation
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setExperimentMode('physical')}
+                                        className={`btn btn-sm ${experimentMode === 'physical' ? 'btn-primary text-dark fw-bold' : 'btn-outline-secondary text-white-50'} py-2`}
+                                        style={{ fontSize: '0.8rem', minHeight: '40px' }}
+                                    >
+                                        <i className="bi bi-flask me-1"></i> Lab
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="col-6 col-md-4">
+                                <label className="form-label text-white-50 small font-mono mb-1" style={{ fontSize: '0.75rem' }}>
+                                    Pipeline Protocol:
+                                </label>
+                                <div className="btn-group w-100" role="group">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAutomationProtocol('automated')}
+                                        className={`btn btn-sm ${automationProtocol === 'automated' ? 'btn-primary text-dark fw-bold' : 'btn-outline-secondary text-white-50'} py-2`}
+                                        style={{ fontSize: '0.8rem', minHeight: '40px' }}
+                                        title="AI Principal Investigator autonomously advances through all phases"
+                                    >
+                                        <i className="bi bi-lightning-charge-fill me-1"></i> Auto Arc
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAutomationProtocol('manual')}
+                                        className={`btn btn-sm ${automationProtocol === 'manual' ? 'btn-primary text-dark fw-bold' : 'btn-outline-secondary text-white-50'} py-2`}
+                                        style={{ fontSize: '0.8rem', minHeight: '40px' }}
+                                        title="Step-by-step human forensic oversight"
+                                    >
+                                        <i className="bi bi-person-workspace me-1"></i> Manual
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Launch Action Button */}
+                        <button
+                            type="button"
+                            onClick={handleQuickStart}
+                            className="btn btn-primary btn-lg w-100 py-2.5 shadow-lg d-flex align-items-center justify-content-center gap-2 fw-bold"
+                            style={{ minHeight: '50px', letterSpacing: '0.02em', fontSize: '0.98rem' }}
+                        >
+                            <i className="bi bi-lightning-charge-fill text-dark fs-5"></i>
+                            <span className="text-dark">START RESEARCH WITH THIS QUESTION &amp; SCOPE</span>
+                            <i className="bi bi-arrow-right-circle-fill text-dark fs-5"></i>
+                        </button>
+                    </div>
+                </div>
 
                 {/* Capability Badges */}
                 <div className="d-flex flex-wrap justify-content-center gap-2 gap-md-3 font-mono small">
@@ -351,6 +557,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                 <i className="bi bi-stripe text-indigo-400"></i>
                                 <span>Stripe Authority</span>
                             </button>
+                        </div>
+                    </div>
+
+                    {/* Model Capability Requirement Notice */}
+                    <div className="p-3 mb-4 rounded-3 border border-info border-opacity-25 bg-sky-950 bg-opacity-30 d-flex align-items-start gap-2.5">
+                        <i className="bi bi-info-circle-fill text-primary-glow fs-5 shrink-0 mt-0.5"></i>
+                        <div>
+                            <span className="fw-bold text-white small font-mono text-uppercase d-block mb-0.5">
+                                Model Capability Requirement:
+                            </span>
+                            <span className="text-white-50 small" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
+                                {MODEL_CAPABILITY_NOTICE}
+                            </span>
                         </div>
                     </div>
 
@@ -544,7 +763,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                                     </div>
                                     <div>
                                         <div className="text-white small fw-semibold">
-                                            {isAnalyzingFile ? 'Extracting structural variables with Gemini...' : 'Attach background literature, lab notebook notes, or raw datasets'}
+                                            {isAnalyzingFile ? 'Extracting structural variables with AI...' : 'Attach background literature, lab notebook notes, or raw datasets'}
                                         </div>
                                         <div className="text-white-50" style={{ fontSize: '0.78rem' }}>
                                             Plain text, .md, .csv, .json, .py files (max 30,000 characters)
@@ -585,25 +804,78 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                             </div>
                         </div>
 
-                        {/* 04. Detailed Research Brief */}
-                        <div>
-                            <div className="d-flex justify-content-between align-items-center mb-1">
-                                <label className="form-label text-white-50 small font-mono fw-bold text-uppercase mb-0">
-                                    05. Research Hypothesis &amp; Methodology Scope
-                                </label>
+                        {/* 04. Research Question & Scope Definition */}
+                        <div id="research-question-scope-entry" className="p-3 p-md-4 rounded-3 bg-dark bg-opacity-40 border border-primary-glow border-opacity-30 shadow-sm" style={{ scrollMarginTop: '90px' }}>
+                            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-1 mb-2">
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className="badge bg-primary-glow text-dark font-mono px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
+                                        STEP 01
+                                    </span>
+                                    <label htmlFor="research-question-textarea" className="form-label text-white small font-mono fw-bold text-uppercase mb-0">
+                                        Research Question &amp; Methodological Scope
+                                    </label>
+                                </div>
                                 <span className="text-white-50 font-mono" style={{ fontSize: '0.75rem' }}>
-                                    {description.length} chars
+                                    {description.length} chars (Required)
                                 </span>
                             </div>
 
+                            <p className="text-white-50 small mb-2" style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
+                                Formulate your primary scientific inquiry, hypothesized causal mechanisms, independent/dependent variables, and empirical boundaries.
+                            </p>
+
+                            {/* Mobile Quick-Insert Parameter Snippets */}
+                            <div className="mb-2">
+                                <div className="d-flex align-items-center justify-content-between mb-1">
+                                    <span className="text-white-50 font-mono" style={{ fontSize: '0.7rem' }}>
+                                        <i className="bi bi-magic text-primary-glow me-1"></i> Quick Scope Builders:
+                                    </span>
+                                </div>
+                                <div className="d-flex flex-wrap gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Independent Variable: \nDependent Variable: ")}
+                                        className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                        style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                    >
+                                        + Variables (IV/DV)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Hypothesized Mechanism: ")}
+                                        className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                        style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                    >
+                                        + Mechanism
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Control Group & Baseline Conditions: ")}
+                                        className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                        style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                    >
+                                        + Control Conditions
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDescription(prev => prev + (prev.trim() ? '\n\n' : '') + "Target Sample Size (N) & Demographics: ")}
+                                        className="btn btn-outline-secondary btn-xs py-1 px-2 text-white-50 border-opacity-25 hover-border-primary font-mono rounded-2"
+                                        style={{ fontSize: '0.72rem', minHeight: '32px' }}
+                                    >
+                                        + Sample Size (N)
+                                    </button>
+                                </div>
+                            </div>
+
                             <textarea 
+                                id="research-question-textarea"
                                 value={description}
                                 onChange={e => setDescription(e.target.value)}
                                 placeholder="Detail your specific research question, independent and dependent variables, hypothesized physiological or mathematical mechanisms, control conditions, and sample requirements..."
                                 required
                                 rows={5}
-                                className="form-control font-mono text-white"
-                                style={{ fontSize: '0.9rem', lineHeight: '1.6' }}
+                                className="form-control font-mono text-white bg-black bg-opacity-40 border-secondary border-opacity-25"
+                                style={{ fontSize: '1rem', lineHeight: '1.6', minHeight: '140px' }}
                             />
                         </div>
 
@@ -657,8 +929,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                     </div>
 
                     <div className="row g-3">
-                        {savedProjects.map(project => (
-                            <div key={project.id} className="col-12 col-md-6">
+                        {savedProjects.map((project, pIdx) => (
+                            <div key={`${project.id || 'proj'}-${pIdx}`} className="col-12 col-md-6">
                                 <div className="card h-100 shadow-sm border-secondary border-opacity-25 d-flex flex-column justify-content-between p-3">
                                     <div>
                                         <div className="d-flex justify-content-between align-items-center mb-2">
@@ -770,6 +1042,64 @@ export const LandingPage: React.FC<LandingPageProps> = ({ setView, user, onLogou
                     </div>
                 </div>
             </section>
+
+            {/* Scientific Lineage & Academic Attribution Card */}
+            <section className="mb-5">
+                <div className="card border-secondary border-opacity-25 bg-dark bg-opacity-40 rounded-3 p-3 p-md-4 shadow-sm">
+                    <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                        <div className="d-flex align-items-start gap-3">
+                            <div className="p-2.5 rounded-2 bg-primary-glow bg-opacity-10 text-primary-glow border border-primary-glow border-opacity-25 shrink-0">
+                                <i className="bi bi-mortarboard-fill fs-4"></i>
+                            </div>
+                            <div>
+                                <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
+                                    <span className="badge bg-primary bg-opacity-20 text-primary-glow border border-primary border-opacity-25 font-mono text-uppercase" style={{ fontSize: '0.72rem' }}>
+                                        Conceptual Attribution
+                                    </span>
+                                    <span className="text-white small fw-bold font-mono">
+                                        The AI Scientist
+                                    </span>
+                                </div>
+                                <p className="text-white-50 small mb-0" style={{ fontSize: '0.85rem', lineHeight: '1.55' }}>
+                                    The idea behind this app is credited to <strong className="text-white">"The AI Scientist,"</strong> developed by Tokyo-based startup <strong className="text-primary-glow">Sakana AI</strong>. Created in collaboration with researchers from the <strong className="text-white">University of Oxford</strong> and the <strong className="text-white">University of British Columbia</strong>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Mobile Persistent Sticky Bottom Action Bar */}
+            <div className="d-block d-md-none position-fixed bottom-0 start-0 end-0 p-2 bg-dark bg-opacity-95 border-top border-secondary border-opacity-30 shadow-lg" style={{ zIndex: 1040, backdropFilter: 'blur(10px)' }}>
+                <div className="d-flex align-items-center justify-content-between gap-2 px-1">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const el = document.getElementById('mobile-research-scope-card') || document.getElementById('research-question-scope-entry');
+                            if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                const ta = el.querySelector('textarea');
+                                if (ta) ta.focus();
+                            }
+                        }}
+                        className="btn btn-outline-secondary btn-sm flex-grow-1 text-white d-flex align-items-center justify-content-center gap-1.5 py-2 font-mono"
+                        style={{ minHeight: '44px', fontSize: '0.78rem' }}
+                    >
+                        <i className="bi bi-pencil-square text-primary-glow"></i>
+                        <span>Question &amp; Scope</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleQuickStart}
+                        className="btn btn-primary btn-sm flex-grow-1 text-dark fw-bold d-flex align-items-center justify-content-center gap-1.5 py-2 shadow-sm"
+                        style={{ minHeight: '44px', fontSize: '0.82rem' }}
+                    >
+                        <i className="bi bi-lightning-charge-fill text-dark"></i>
+                        <span>Start Phase 01</span>
+                    </button>
+                </div>
+            </div>
 
             {showLLMModal && (
                 <LLMProviderModal

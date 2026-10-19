@@ -47,6 +47,28 @@ export const Header = ({ setView, activeView, onToggleNotebook, onToggleCitation
                             <span className={`badge rounded-pill ${keyStatus.color || 'bg-success'} p-1`} style={{ width: '8px', height: '8px' }}></span>
                         </button>
 
+                        {/* Mobile Quick "Get Started: Step 1" button */}
+                        <button
+                            type="button"
+                            className="btn btn-primary d-flex align-items-center gap-1 px-2.5 py-1.5 fw-bold rounded-pill text-dark shadow-sm"
+                            onClick={() => {
+                                setView('landing');
+                                setTimeout(() => {
+                                    const el = document.getElementById('mobile-research-scope-card') || document.getElementById('research-question-scope-entry');
+                                    if (el) {
+                                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        const ta = el.querySelector('textarea');
+                                        if (ta) ta.focus();
+                                    }
+                                }, 150);
+                            }}
+                            title="Get Started: Enter Research Question & Scope"
+                            style={{ fontSize: '0.8rem', minHeight: '36px' }}
+                        >
+                            <i className="bi bi-question-circle-fill fs-6 text-dark"></i>
+                            <span className="font-mono text-dark fw-bold">Step 1</span>
+                        </button>
+
                         {/* Sign In / Account Access Button */}
                         <button
                             type="button"

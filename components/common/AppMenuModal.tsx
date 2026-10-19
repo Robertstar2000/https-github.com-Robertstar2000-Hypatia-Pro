@@ -57,6 +57,28 @@ export const AppMenuModal: React.FC<AppMenuModalProps> = ({ onClose, setView, ac
     };
 
     const menuItems = [
+        {
+            id: 'step-1-scope',
+            label: activeExperiment ? 'Step 1: Research Question & Scope' : 'Get Started: Research Question & Scope',
+            icon: 'bi-question-circle-fill',
+            description: activeExperiment ? `Active Investigation: ${activeExperiment.title}` : 'Define hypothesis, inquiry scope, and begin Phase 01',
+            action: () => {
+                if (activeExperiment) {
+                    handleNavigate('experiment');
+                } else {
+                    handleNavigate('landing');
+                    setTimeout(() => {
+                        const el = document.getElementById('mobile-research-scope-card') || document.getElementById('research-question-scope-entry');
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            const ta = el.querySelector('textarea');
+                            if (ta) ta.focus();
+                        }
+                    }, 200);
+                }
+            },
+            visible: true
+        },
         { 
             id: 'landing', 
             label: 'New Investigation', 

@@ -6,7 +6,8 @@ import {
     SUPPORTED_PROVIDERS, 
     getStoredLLMConfig, 
     saveLLMConfig, 
-    LLMConfig 
+    LLMConfig,
+    MODEL_CAPABILITY_NOTICE
 } from '../../services/llmConfig';
 import { useToast } from '../../toast';
 import { getSafeEnvApiKey } from '../../services/api';
@@ -272,11 +273,20 @@ export const LLMProviderModal: React.FC<LLMProviderModalProps> = ({ isOpen, onCl
 
                     <div className="modal-body p-3 p-md-4" style={{ maxHeight: 'calc(85vh - 120px)', overflowY: 'auto' }}>
                         
+                        {/* LLM Model Capability Requirement Notice */}
+                        <div className="p-3 mb-4 rounded-3 bg-sky-950/40 border border-sky-500/35 text-sky-200 small d-flex align-items-start gap-2.5 shadow-sm">
+                            <i className="bi bi-info-circle-fill text-sky-400 fs-5 shrink-0 mt-0.5"></i>
+                            <div>
+                                <span className="fw-bold d-block text-white mb-0.5">Model Capability Requirement:</span>
+                                <span className="text-sky-200" style={{ lineHeight: '1.4' }}>{MODEL_CAPABILITY_NOTICE}</span>
+                            </div>
+                        </div>
+
                         {/* 1. Provider Tabs */}
                         <div className="mb-4">
                             <label className="form-label text-white-50 small font-mono text-uppercase fw-bold mb-2 d-flex align-items-center justify-content-between">
                                 <span>1. Select LLM Provider</span>
-                                <span className="text-white-50 font-sans" style={{ fontSize: '0.75rem' }}>5 Providers Available</span>
+                                <span className="text-white-50 font-sans" style={{ fontSize: '0.75rem' }}>6 Providers Available (including xAI Grok)</span>
                             </label>
 
                             <div className="row g-2">

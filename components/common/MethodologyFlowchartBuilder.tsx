@@ -29,7 +29,7 @@ export const MethodologyFlowchartBuilder: React.FC<MethodologyFlowchartBuilderPr
     const handleAddNode = () => {
         if (!newStage.trim()) return;
         const newNode: FlowchartNode = {
-            id: Date.now().toString(),
+            id: `node_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
             stage: newStage.trim(),
             description: newDesc.trim() || 'No details specified.',
             type: newType
@@ -76,7 +76,7 @@ export const MethodologyFlowchartBuilder: React.FC<MethodologyFlowchartBuilderPr
             {/* Flowchart Nodes Display */}
             <div className="d-flex align-items-center gap-2 overflow-x-auto py-2 mb-3">
                 {nodes.map((node, index) => (
-                    <React.Fragment key={node.id}>
+                    <React.Fragment key={`${node.id || 'node'}-${index}`}>
                         <div className="p-3 bg-dark border border-secondary border-opacity-25 rounded position-relative" style={{ minWidth: '180px', maxWidth: '220px' }}>
                             <div className="d-flex align-items-center justify-content-between mb-1">
                                 <span className="font-monospace small text-white-50">#{index + 1}</span>

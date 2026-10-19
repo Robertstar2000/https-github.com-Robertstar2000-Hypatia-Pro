@@ -13,8 +13,20 @@ export const Dashboard = ({ setView }) => {
     const [showDeployModal, setShowDeployModal] = useState(false);
     const [selectedExperiment, setSelectedExperiment] = useState<Experiment | null>(null);
 
-    const activeExperiments = useMemo(() => experiments.filter(e => !e.status || e.status === 'active'), [experiments]);
-    const archivedExperiments = useMemo(() => experiments.filter(e => e.status === 'archived'), [experiments]);
+    const uniqueExperiments = useMemo(() => {
+        if (!Array.isArray(experiments)) return [];
+        const seen = new Set<string>();
+        return experiments.filter(e => {
+            if (!e) return false;
+            const k = String(e.id || '');
+            if (!k || seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
+    }, [experiments]);
+
+    const activeExperiments = useMemo(() => uniqueExperiments.filter(e => !e.status || e.status === 'active'), [uniqueExperiments]);
+    const archivedExperiments = useMemo(() => uniqueExperiments.filter(e => e.status === 'archived'), [uniqueExperiments]);
 
     const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -81,38 +93,54 @@ export const Dashboard = ({ setView }) => {
         addToast("Project restored to active dashboard.", 'success');
     }, [updateExperiment, addToast]);
     
+    const handleStartNewProject = () => {
+        setView('landing');
+        setTimeout(() => {
+            const el = document.getElementById('mobile-research-scope-card') || document.getElementById('research-question-scope-entry');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const ta = el.querySelector('textarea');
+                if (ta) ta.focus();
+            }
+        }, 150);
+    };
+
     return (
         <div className="container py-4">
-            <div className="d-flex justify-content-between align-items-center mb-5">
+            <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4 mb-md-5">
                 <div>
                     <h2 className="section-title mb-0 fw-bold">Research Dashboard</h2>
                     <p className="text-white-50 mb-0">Monitor and manage your active discovery nodes.</p>
                 </div>
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 w-100 w-sm-auto justify-content-end flex-wrap">
                      <label className="btn btn-outline-secondary btn-sm d-flex align-items-center" style={{cursor: 'pointer'}}>
                         <i className="bi bi-upload me-2"></i> Import JSON
                         <input type="file" accept=".json" onChange={handleFileImport} style={{display: 'none'}} />
                     </label>
-                    <button className="btn btn-primary shadow" onClick={() => setView('landing')}>
-                        <i className="bi bi-plus-lg me-1"></i> New Project
+                    <button className="btn btn-primary shadow d-flex align-items-center gap-1.5" onClick={handleStartNewProject}>
+                        <i className="bi bi-plus-lg"></i>
+                        <span>Start New Study</span>
                     </button>
                 </div>
             </div>
 
             {activeExperiments.length === 0 && archivedExperiments.length === 0 && (
-                 <div className="text-center p-5 dashboard-empty-state card border-dashed bg-transparent">
+                 <div className="text-center p-4 p-md-5 dashboard-empty-state card border-dashed bg-transparent">
                     <i className="bi bi-journal-plus text-primary-glow" style={{fontSize: '3rem'}}></i>
                     <h4 className="mt-3 fw-bold">Initialize Your First Study</h4>
-                    <p className="text-white-50 mx-auto" style={{maxWidth: '400px'}}>No research projects detected in local archival storage. Start a new discovery journey to begin.</p>
-                    <button className="btn btn-primary mt-3 px-4" onClick={() => setView('landing')}>Create Project</button>
+                    <p className="text-white-50 mx-auto" style={{maxWidth: '420px'}}>No research projects detected in local archival storage. Formulate your research question and define your inquiry boundaries to begin.</p>
+                    <button className="btn btn-primary mt-3 px-4 py-2.5 d-inline-flex align-items-center gap-2 fw-bold" onClick={handleStartNewProject}>
+                        <i className="bi bi-question-circle-fill fs-5"></i>
+                        <span>Get Started: Research Question &amp; Scope</span>
+                    </button>
                 </div>
             )}
             
             {activeExperiments.length > 0 ? (
                 <div className="row g-4 mb-5">
-                    {activeExperiments.map(exp => (
+                    {activeExperiments.map((exp, idx) => (
                         <ExperimentCard 
-                            key={exp.id} 
+                            key={`${exp.id || 'act-exp'}-${idx}`} 
                             exp={exp} 
                             onArchive={handleArchive} 
                             onUnarchive={handleUnarchive} 
@@ -123,7 +151,7 @@ export const Dashboard = ({ setView }) => {
                         />
                     ))}
                 </div>
-            ) : experiments.length > 0 && (
+            ) : uniqueExperiments.length > 0 && (
                 <div className="alert alert-dark border-secondary border-opacity-25 bg-black bg-opacity-20 text-center mb-5 p-4">
                     <i className="bi bi-info-circle me-2"></i> All projects are currently archived.
                 </div>
@@ -136,9 +164,9 @@ export const Dashboard = ({ setView }) => {
                         <h3 className="section-title mb-0 text-white-50">Saved Projects</h3>
                     </div>
                     <div className="row g-4">
-                        {archivedExperiments.map(exp => (
+                        {archivedExperiments.map((exp, idx) => (
                             <ExperimentCard 
-                                key={exp.id} 
+                                key={`${exp.id || 'arch-exp'}-${idx}`} 
                                 exp={exp} 
                                 isArchived={true} 
                                 onArchive={handleArchive} 

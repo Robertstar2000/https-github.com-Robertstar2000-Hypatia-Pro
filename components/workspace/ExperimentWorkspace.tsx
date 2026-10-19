@@ -144,26 +144,50 @@ export const ExperimentWorkspace = () => {
         if (!activeExperiment || !isAuthenticated || isLoading || isVerifying || automationPaused || reviewCountdown !== null) return;
         
         const mode = activeExperiment.automationMode;
-        if (mode === 'automated' && activeStep === activeExperiment.currentStep) {
-            const now = Date.now();
-            if (now - lastAutomationTick.current < 5000) return;
-            lastAutomationTick.current = now;
+        if (mode !== 'automated' || activeStep !== activeExperiment.currentStep) return;
 
-            const stepData = (activeExperiment.stepData && activeExperiment.stepData[activeStep]) || {};
-            const isAgenticStep = [2, 6, 7, 8, 9, 10].includes(activeStep);
-            
-            const hasCriticalBlockers = stepData?.blockers?.some(b => b.severity === 'critical' && !b.resolved);
-            if (hasCriticalBlockers) {
-                setAutomationPaused(true);
-                addToast("Automation paused: Critical blockers detected.", "warning");
+        const stepData = (activeExperiment.stepData && activeExperiment.stepData[activeStep]) || {};
+        const isAgenticStep = [2, 6, 7, 8, 9, 10].includes(activeStep);
+        
+        const hasCriticalBlockers = stepData?.blockers?.some(b => b.severity === 'critical' && !b.resolved);
+        if (hasCriticalBlockers) {
+            setAutomationPaused(true);
+            addToast("Automation paused: Critical blockers detected.", "warning");
+            return;
+        }
+
+        // Case 1: Non-agentic step needs generation (e.g. Step 1, 3, 4, 5)
+        if (!stepData?.output && !isAgenticStep) {
+            const now = Date.now();
+            const timeSinceLast = now - lastAutomationTick.current;
+            if (timeSinceLast < 2000) {
+                const timerId = setTimeout(() => {
+                    if (isMounted.current && !isLoading && !isVerifying) {
+                        lastAutomationTick.current = Date.now();
+                        handleGenerate();
+                    }
+                }, 2000 - timeSinceLast);
+                return () => clearTimeout(timerId);
+            }
+            lastAutomationTick.current = now;
+            handleGenerate();
+            return;
+        }
+
+        // Case 2: Output exists for non-agentic step -> advance or countdown
+        if (stepData?.output && !isAgenticStep) {
+            if (stepData?.summary) {
+                // Already summarized and verified -> advance immediately
+                handleCompleteStep();
                 return;
             }
-
-            if (!stepData?.output && !isAgenticStep) {
-                handleGenerate();
-            } else if (stepData?.output && !stepData?.summary && !isAgenticStep) {
-                setReviewCountdown(15);
-            }
+            // Start visual countdown for user visibility and ability to skip
+            const timerId = setTimeout(() => {
+                if (isMounted.current && !automationPaused && reviewCountdown === null) {
+                    setReviewCountdown(5);
+                }
+            }, 500);
+            return () => clearTimeout(timerId);
         }
     }, [activeExperiment, activeStep, isAuthenticated, isLoading, isVerifying, automationPaused, reviewCountdown, addToast]);
 
@@ -454,7 +478,7 @@ export const ExperimentWorkspace = () => {
     const handleAutoAdvance = (requestingStepId: number) => {
         if (!isMounted.current) return;
         if (activeStepRef.current === requestingStepId) {
-            setReviewCountdown(15);
+            setReviewCountdown(5);
         }
     };
 
@@ -481,6 +505,44 @@ export const ExperimentWorkspace = () => {
 
         return (
             <div className="discovery-view">
+                {activeStep === 1 && activeExperiment.automationMode === null && (
+                    <div className="alert border-primary border-opacity-25 bg-dark bg-opacity-40 p-3 rounded-3 mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
+                        <div className="d-flex align-items-center gap-2.5">
+                            <div className="p-2 rounded-circle bg-primary bg-opacity-10 text-primary-glow border border-primary border-opacity-20 shrink-0">
+                                <i className="bi bi-cpu-fill fs-5"></i>
+                            </div>
+                            <div>
+                                <strong className="text-white d-block small font-mono">AUTONOMOUS RESEARCH PROTOCOL AVAILABLE</strong>
+                                <span className="text-white-50" style={{ fontSize: '0.8rem' }}>
+                                    Engage the AI Principal Investigator to execute the entire research arc autonomously, or continue with manual oversight.
+                                </span>
+                            </div>
+                        </div>
+                        <div className="d-flex align-items-center gap-2 w-100 w-sm-auto justify-content-end shrink-0">
+                            <button 
+                                className="btn btn-sm btn-primary fw-bold text-dark d-flex align-items-center gap-1.5 px-3"
+                                onClick={() => {
+                                    updateExperiment({ ...activeExperiment, automationMode: 'automated' });
+                                    setAutomationPaused(false);
+                                    lastAutomationTick.current = 0;
+                                    addToast("Autonomous protocol engaged: Auto-advancing pipeline from Step 1 to Publication.", "success");
+                                }}
+                            >
+                                <i className="bi bi-lightning-charge-fill"></i>
+                                <span>Start Auto-Sequence</span>
+                            </button>
+                            <button 
+                                className="btn btn-sm btn-outline-secondary text-white-50 px-2.5"
+                                onClick={() => {
+                                    updateExperiment({ ...activeExperiment, automationMode: 'manual' });
+                                    addToast("Manual forensic oversight active.", "info");
+                                }}
+                            >
+                                Manual
+                            </button>
+                        </div>
+                    </div>
+                )}
                 {activeStep === 1 && <EditableStepInput stepId={1} />}
                 <GeneratedOutput
                     key={`${activeExperiment.id}-${activeStep}`}
@@ -654,6 +716,42 @@ export const ExperimentWorkspace = () => {
                 </div>
             </div>
 
+            {/* Dedicated Mobile Step Header Banner */}
+            <div className="d-block d-md-none p-2.5 bg-dark bg-opacity-40 border border-secondary border-opacity-25 rounded-3 mb-1">
+                <div className="d-flex align-items-center justify-content-between gap-2">
+                    <div className="d-flex align-items-center gap-2 text-truncate">
+                        <span className="badge bg-primary-glow text-dark font-mono shrink-0">
+                            Step {activeStep}/10
+                        </span>
+                        <span className="fw-bold text-white small font-mono text-truncate">
+                            {WORKFLOW_STEPS[activeStep - 1]?.title || 'Research Stage'}
+                        </span>
+                    </div>
+                    <div className="d-flex align-items-center gap-1 shrink-0">
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-xs py-1 px-2 text-white"
+                            disabled={activeStep <= 1 || isLoading || isVerifying}
+                            onClick={() => handleStepChange(activeStep - 1)}
+                            aria-label="Previous Step"
+                            title="Previous Step"
+                        >
+                            <i className="bi bi-chevron-left"></i>
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-xs py-1 px-2 text-white"
+                            disabled={activeStep >= (activeExperiment?.currentStep || 1) || isLoading || isVerifying}
+                            onClick={() => handleStepChange(activeStep + 1)}
+                            aria-label="Next Step"
+                            title="Next Step"
+                        >
+                            <i className="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <main className="content-area w-100">
                 <div className="card shadow-sm border-secondary border-opacity-25 position-relative overflow-hidden">
                     {(isLoading || isVerifying || reviewCountdown !== null) && (
@@ -662,7 +760,7 @@ export const ExperimentWorkspace = () => {
                                  style={{ width: reviewCountdown !== null ? `${(reviewCountdown / 15) * 100}%` : '100%' }}></div>
                         </div>
                     )}
-                    <div className="card-body p-4" style={{ minHeight: '60vh' }}>
+                    <div className="card-body p-3 p-md-4" style={{ minHeight: '60vh' }}>
                         <div className="d-flex justify-content-between align-items-start mb-4">
                             <div>
                                 <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
@@ -695,22 +793,60 @@ export const ExperimentWorkspace = () => {
                                 </p>
                             </div>
                             <div className="d-flex flex-column align-items-end">
-                                {activeExperiment.automationMode === 'automated' && (
-                                    <>
-                                        <span className={`badge ${automationPaused ? 'bg-warning text-dark' : 'bg-primary'} px-3 py-2 rounded-pill shadow-sm mb-2`}>
-                                            <i className={`bi ${automationPaused ? 'bi-pause-circle-fill' : 'bi-cpu-fill'} me-1`}></i> 
-                                            {automationPaused ? 'PAUSED' : 'AUTO'}
-                                        </span>
-                                        {automationPaused && (
-                                            <button className="btn btn-xs btn-outline-warning" onClick={() => setAutomationPaused(false)}>RESUME</button>
-                                        )}
+                                {activeExperiment.automationMode === 'automated' ? (
+                                    <div className="d-flex flex-column align-items-end gap-1.5">
+                                        <div className="d-flex align-items-center gap-2">
+                                            <span className={`badge ${automationPaused ? 'bg-warning text-dark' : 'bg-primary'} px-3 py-2 rounded-pill shadow-sm d-flex align-items-center gap-1.5`}>
+                                                <i className={`bi ${automationPaused ? 'bi-pause-circle-fill' : 'bi-cpu-fill'} me-1`}></i> 
+                                                <span>{automationPaused ? 'AUTO PAUSED' : 'AUTO ARC ACTIVE'}</span>
+                                            </span>
+                                            {automationPaused ? (
+                                                <button className="btn btn-xs btn-outline-warning fw-bold" onClick={() => setAutomationPaused(false)}>
+                                                    <i className="bi bi-play-fill me-1"></i>RESUME
+                                                </button>
+                                            ) : (
+                                                <button className="btn btn-xs btn-outline-secondary text-white-50" onClick={() => setAutomationPaused(true)} title="Pause autonomous advancement">
+                                                    <i className="bi bi-pause-fill me-1"></i>PAUSE
+                                                </button>
+                                            )}
+                                            <button 
+                                                className="btn btn-xs btn-outline-secondary text-white-50"
+                                                onClick={() => {
+                                                    updateExperiment({ ...activeExperiment, automationMode: 'manual' });
+                                                    setReviewCountdown(null);
+                                                    addToast("Switched to manual control.", "info");
+                                                }}
+                                                title="Switch to manual step-by-step control"
+                                            >
+                                                Manual
+                                            </button>
+                                        </div>
                                         {reviewCountdown !== null && (
-                                            <div className="text-info small fw-bold mt-1 font-mono">
-                                                NEXT &gt; {reviewCountdown}s
-                                                <button className="btn btn-link btn-xs text-info p-0 ms-2" onClick={() => handleCompleteStep()}>SKIP</button>
+                                            <div className="text-info small fw-bold font-mono d-flex align-items-center gap-1.5 bg-dark bg-opacity-75 px-2.5 py-1 rounded border border-info border-opacity-30">
+                                                <span className="spinner-grow spinner-grow-sm text-info me-1" style={{ width: '8px', height: '8px' }}></span>
+                                                <span>AUTO ADVANCE IN {reviewCountdown}s</span>
+                                                <button className="btn btn-link btn-xs text-info p-0 ms-2 text-decoration-none fw-bold" onClick={() => handleCompleteStep()}>
+                                                    SKIP <i className="bi bi-chevron-double-right"></i>
+                                                </button>
                                             </div>
                                         )}
-                                    </>
+                                    </div>
+                                ) : (
+                                    <div className="d-flex align-items-center gap-2">
+                                        <button 
+                                            className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5 shadow-sm"
+                                            onClick={() => {
+                                                updateExperiment({ ...activeExperiment, automationMode: 'automated' });
+                                                setAutomationPaused(false);
+                                                lastAutomationTick.current = 0;
+                                                addToast("Engaged Autonomous Pipeline.", "success");
+                                            }}
+                                            title="Enable autonomous discovery pipeline"
+                                        >
+                                            <i className="bi bi-cpu-fill text-primary-glow"></i>
+                                            <span className="small font-mono fw-bold">ENGAGE AUTO ARC</span>
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>

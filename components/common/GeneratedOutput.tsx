@@ -164,11 +164,15 @@ export const GeneratedOutput: React.FC<GeneratedOutputProps> = ({
             )}
 
             {!currentText && !isLoading ? (
-                <div className="text-center p-5 border border-secondary border-opacity-10 rounded-4 bg-dark bg-opacity-10 my-3">
-                    <i className="bi bi-cpu mb-3 text-primary-glow opacity-50 d-block" style={{ fontSize: '2.5rem' }}></i>
-                    <h5 className="fw-bold mb-2">Initialize Archival Node</h5>
-                    <p className="text-white-50 small mb-4 mx-auto" style={{maxWidth: '350px'}}>
-                        Synthesize discovery data from previous steps into a verifiable research node.
+                <div className="text-center p-4 p-md-5 border border-secondary border-opacity-10 rounded-4 bg-dark bg-opacity-10 my-3">
+                    <i className={`bi ${stepId === 1 ? 'bi-question-circle text-primary-glow' : 'bi-cpu text-primary-glow'} mb-3 opacity-50 d-block`} style={{ fontSize: '2.5rem' }}></i>
+                    <h5 className="fw-bold mb-2">
+                        {stepId === 1 ? 'Synthesize Research Question & Scope' : 'Initialize Archival Node'}
+                    </h5>
+                    <p className="text-white-50 small mb-4 mx-auto" style={{maxWidth: '380px'}}>
+                        {stepId === 1 
+                            ? 'Run multi-agent AI verification to evaluate hypothesis novelty, calibrate variable definitions, and bound experimental scope.'
+                            : 'Synthesize discovery data from previous steps into a verifiable research node.'}
                     </p>
                     
                     {stepId === 3 && (
@@ -192,8 +196,15 @@ export const GeneratedOutput: React.FC<GeneratedOutputProps> = ({
                         </div>
                     )}
 
-                    <button className="btn btn-primary px-5 py-2 rounded-pill shadow-sm" onClick={() => handleRegenerate()}>
-                        <i className="bi bi-lightning-charge-fill me-2"></i> Generate {stepId === 3 ? 'Hypotheses' : 'Output'}
+                    <button className="btn btn-primary px-4 px-md-5 py-2.5 rounded-pill shadow-sm d-inline-flex align-items-center gap-2 fw-bold" onClick={() => handleRegenerate()}>
+                        <i className="bi bi-lightning-charge-fill text-dark"></i>
+                        <span className="text-dark">
+                            {stepId === 1 
+                                ? 'Analyze Question & Scope' 
+                                : stepId === 3 
+                                    ? 'Generate Hypotheses' 
+                                    : 'Generate Output'}
+                        </span>
                     </button>
                 </div>
             ) : null}

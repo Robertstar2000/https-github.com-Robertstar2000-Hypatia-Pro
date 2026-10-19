@@ -94,7 +94,7 @@ export interface ExperimentContextType {
     experiments: Experiment[];
     activeExperiment: Experiment | null;
     isAuthenticated: boolean;
-    createNewExperiment: (title: string, description: string, field: string, experimentMode: 'simulation' | 'physical') => Promise<void>;
+    createNewExperiment: (title: string, description: string, field: string, experimentMode: 'simulation' | 'physical', automationMode?: 'manual' | 'automated' | null) => Promise<void>;
     updateExperiment: (updatedExperiment: Experiment) => Promise<Experiment>;
     deleteExperiment: (id: string) => Promise<void>;
     selectExperiment: (id: string) => void;

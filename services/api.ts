@@ -116,7 +116,7 @@ export const testApiKey = async (key: string, provider: string = 'google', model
             try {
                 const ai = new GoogleGenAI({ apiKey: key });
                 await ai.models.generateContent({
-                     model: model || 'gemini-3.8-flash',
+                     model: model || 'gemini-2.5-pro',
                      contents: 'Ping.',
                 });
                 return true;
@@ -124,7 +124,7 @@ export const testApiKey = async (key: string, provider: string = 'google', model
                 try {
                     const ai = new GoogleGenAI({ apiKey: key });
                     await ai.models.generateContent({
-                         model: 'gemini-3.1-flash-lite',
+                         model: 'gemini-2.5-flash',
                          contents: 'Ping.',
                     });
                     return true;
@@ -187,10 +187,18 @@ const callGeminiWithTimeout = async (geminiCall: Promise<any>, timeout: number =
     }
 };
 
+export const normalizeModelName = (m: string): string => {
+    if (!m) return 'gemini-3.8-flash';
+    if (m === 'gemini-2.5-pro' || m === 'models/gemini-2.5-pro') return 'gemini-3.8-flash';
+    if (m === 'gemini-2.5-flash' || m === 'models/gemini-2.5-flash' || m === 'gemini-2.0-flash' || m === 'models/gemini-2.0-flash') return 'gemini-3.8-flash';
+    return m;
+};
+
 const FALLBACK_MODELS = [
     'gemini-3.8-flash',
-    'gemini-3.1-flash-lite',
-    'gemini-3.1-pro-preview'
+    'gemini-3.1-pro-preview',
+    'gemini-flash-latest',
+    'gemini-4-argon'
 ];
 
 /**
@@ -279,10 +287,12 @@ export const callGeminiWithRetry = async (
     const defaults = { temperature: 0.7, topK: 40 };
     params.config = { ...defaults, ...(params.config || {}) };
 
-    // Allow user selected model to be preferred
-    let currentModel = (llmConfig.provider === 'google' && (llmConfig.customModel || llmConfig.model)) 
-        ? (llmConfig.customModel || llmConfig.model) 
-        : modelName;
+    // Allow user selected model to be preferred, normalized for supported models
+    let currentModel = normalizeModelName(
+        (llmConfig.provider === 'google' && (llmConfig.customModel || llmConfig.model)) 
+            ? (llmConfig.customModel || llmConfig.model) 
+            : modelName
+    );
     let attempts = 0;
     const attemptedModels = new Set<string>();
     attemptedModels.add(currentModel);
@@ -302,6 +312,20 @@ export const callGeminiWithRetry = async (
         } catch (error: any) {
             attempts++;
             const msg = error?.message || error?.toString() || "";
+
+            const isNotFound = msg.includes("404") || msg.includes("NOT_FOUND") || msg.includes("not found") || msg.includes("no longer available") || msg.includes("is not supported");
+            if (isNotFound) {
+                console.warn(`[API Notice] Model ${currentModel} is unavailable. Switching to fallback...`);
+                const nextModel = FALLBACK_MODELS.find(m => m !== currentModel && !attemptedModels.has(m));
+                if (nextModel) {
+                    attemptedModels.add(nextModel);
+                    currentModel = nextModel;
+                    attempts = 0;
+                    await wait(500);
+                    continue;
+                }
+            }
+
             console.error(`[API Error] Attempt ${attempts} failed for model ${currentModel}:`, error);
             
             const isQuota = msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED");
@@ -424,9 +448,11 @@ export const callGeminiStreamWithRetry = async (
         return simulatedStream();
     }
 
-    const targetModel = (llmConfig.provider === 'google' && (llmConfig.customModel || llmConfig.model))
-        ? (llmConfig.customModel || llmConfig.model)
-        : (modelName || 'gemini-3.8-flash');
+    const targetModel = normalizeModelName(
+        (llmConfig.provider === 'google' && (llmConfig.customModel || llmConfig.model))
+            ? (llmConfig.customModel || llmConfig.model)
+            : (modelName || 'gemini-3.1-pro-preview')
+    );
 
     let attempts = 0;
     while (true) {
@@ -465,7 +491,7 @@ export const generateLabImage = async (prompt: string): Promise<string | null> =
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash-image',
+            model: 'gemini-2.5-flash-image',
             contents: {
                 parts: [{ text: prompt }]
             },
@@ -709,9 +735,30 @@ export const parseBlockers = (text: string): Blocker[] => {
 
 export const generateNodeSummary = async (content: string, field: string): Promise<string> => {
     if (!content || content.length < 50) return content;
-    const prompt = `As a Research Archivist in ${field}, compress the following content into a concise, high-density summary (max 3 sentences). Preserve key variables and findings.\n\nCONTENT:\n${content.substring(0, 15000)}...`;
+
+    // Fast path: If content contains structured JSON, extract key summary fields instantaneously with 0ms latency
     try {
-        const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt });
+        const jsonStr = extractJson(content);
+        if (jsonStr) {
+            const data = JSON.parse(jsonStr);
+            if (data.research_question) {
+                return `Research Question: ${data.research_question}. ${data.justification || ''}`.trim().slice(0, 300);
+            }
+            if (data.synthesis_narrative) {
+                return String(data.synthesis_narrative).slice(0, 300);
+            }
+            if (data.final_hypothesis?.null_hypothesis) {
+                return `Null: ${data.final_hypothesis.null_hypothesis}; Alt: ${data.final_hypothesis.alternative_hypothesis_1 || ''}`.slice(0, 300);
+            }
+            if (data.summary) {
+                return String(data.summary).slice(0, 300);
+            }
+        }
+    } catch {}
+
+    const prompt = `As a Research Archivist in ${field}, compress the following content into a concise, high-density summary (max 3 sentences). Preserve key variables and findings.\n\nCONTENT:\n${content.substring(0, 5000)}...`;
+    try {
+        const response = await callGeminiWithRetry('gemini-3.8-flash', { contents: prompt }, { maxRetries: 1, timeout: 3500 });
         return safeGetText(response) || content.substring(0, 200) + "...";
     } catch (e) {
         return content.substring(0, 200) + "...";

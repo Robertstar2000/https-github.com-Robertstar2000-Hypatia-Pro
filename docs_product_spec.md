@@ -2,6 +2,9 @@
 
 Project Hypatia Pro is a high-performance, full-stack scientific orchestration platform.
 
+## Conceptual Attribution & Lineage
+The idea behind this app is credited to **"The AI Scientist,"** developed by Tokyo-based startup **Sakana AI**, created in collaboration with researchers from the **University of Oxford** and the **University of British Columbia**.
+
 ## 1. Core Technology Stack
 - **Engine**: React 19 (Strict Mode enabled).
 - **Styling**: Bootstrap 5.3 + Custom CSS3 Design System.
@@ -22,8 +25,8 @@ The platform employs specialized harnesses to govern different types of tasks:
 - **Adversarial Debate Harness (Step 9)**: Orchestrates a 3-turn sequential critique where a Methodology Reviewer and a Statistical Reviewer provide independent critiques, which are then synthesized by an Editor-in-Chief into a structured journal-style peer review.
 
 ### 2.2 Agent Tiers
-- **Logic Tier (Pro)**: `gemini-2.5-pro` - Used for Step 1 (Reasoning), Step 9 (Adversarial Logic, 3-turn rigorous process), and Step 10 (Technical Writing).
-- **Synthesis Tier (Flash)**: `gemini-2.5-flash` - Used for high-volume summarization and data simulation.
+- **Logic Tier (Pro/Frontier)**: `gemini-4-argon` / `gemini-3.8-flash` - Used for Step 1 (Reasoning), Step 9 (Adversarial Logic, 3-turn rigorous process), and Step 10 (Technical Writing).
+- **Synthesis Tier (Flash)**: `gemini-3.8-flash` / `gemini-flash-latest` - Used for high-volume summarization and data simulation.
 
 ## 3. Security & Code Sandboxing
 ### Step 6 Code Execution

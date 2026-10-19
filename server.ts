@@ -302,7 +302,7 @@ async function startServer() {
     res.json({
       isStudio,
       hasStudioGeminiKey: hasStudioKey,
-      studioModel: 'models/gemini-3.8-flash',
+      studioModel: 'models/gemini-3.1-pro-preview',
       userEmail: 'robertstar2000@gmail.com'
     });
   });
@@ -1086,6 +1086,18 @@ async function startServer() {
         authUrl = `${oauthGateway}?${params.toString()}`;
         break;
       }
+      case 'grok': {
+        const clientId = process.env.XAI_OAUTH_CLIENT_ID || 'hypatia-xai-grok-client';
+        const params = new URLSearchParams({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          response_type: 'code',
+          scope: 'grok.completions model.read',
+          state
+        });
+        authUrl = `https://console.x.ai/oauth/authorize?${params.toString()}`;
+        break;
+      }
       case 'openrouter': {
         const params = new URLSearchParams({ callback_url: redirectUri });
         authUrl = `https://openrouter.ai/auth?${params.toString()}`;
@@ -1113,6 +1125,7 @@ async function startServer() {
 
     const providerNames: Record<string, string> = {
       google: 'Google Gemini Pro Subscription',
+      grok: 'xAI SuperGrok / Grok Subscription',
       openai: 'OpenAI / ChatGPT Subscription',
       anthropic: 'Anthropic Claude Pro Subscription',
       ollama: 'Enterprise Ollama Gateway',
@@ -1183,7 +1196,8 @@ async function startServer() {
           return res.status(400).json({ success: false, message: 'Google API key is required.' });
         }
         const ai = new GoogleGenAI({ apiKey: key || 'env_fallback' });
-        const testModel = model || 'gemini-3.8-flash';
+        const mapModel = (m?: string) => (!m || m === 'gemini-2.5-pro' || m === 'models/gemini-2.5-pro' || m === 'gemini-2.5-flash' || m === 'models/gemini-2.5-flash') ? 'gemini-3.8-flash' : m;
+        const testModel = mapModel(model);
         const response = await ai.models.generateContent({
           model: testModel,
           contents: 'Ping test. Reply with "PONG".',
@@ -1223,6 +1237,32 @@ async function startServer() {
         }
         const data = await resp.json();
         return res.json({ success: true, message: `Connected to OpenAI (${testModel}) successfully!`, details: data });
+      }
+
+      if (provider === 'grok') {
+        const token = apiKey || oauthToken || process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+        if (!token) {
+          return res.status(400).json({ success: false, message: 'xAI Grok API key or OAuth subscription is required.' });
+        }
+        const testModel = model || 'grok-3-mini';
+        const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            model: testModel,
+            messages: [{ role: 'user', content: 'Ping' }],
+            max_tokens: 10
+          })
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          return res.status(resp.status).json({ success: false, message: `xAI Grok returned HTTP ${resp.status}: ${errText}` });
+        }
+        const data = await resp.json();
+        return res.json({ success: true, message: `Connected to xAI Grok (${testModel}) successfully!`, details: data });
       }
 
       if (provider === 'anthropic') {
@@ -1319,7 +1359,8 @@ async function startServer() {
           return res.status(400).json({ error: 'No Gemini API Key available. Provide an API key or ensure server Secret Manager is bound.' });
         }
         const ai = new GoogleGenAI({ apiKey: key });
-        const targetModel = model || 'gemini-3.8-flash';
+        const mapGenModel = (m?: string) => (!m || m === 'gemini-2.5-pro' || m === 'models/gemini-2.5-pro' || m === 'gemini-2.5-flash' || m === 'models/gemini-2.5-flash') ? 'gemini-3.8-flash' : m;
+        const targetModel = mapGenModel(model);
         
         const config: any = {
           temperature: Number(temperature),
@@ -1413,6 +1454,51 @@ async function startServer() {
         const data: any = await resp.json();
         const text = data.choices?.[0]?.message?.content || '';
         return res.json({ text, provider: 'openai', model: targetModel, raw: data });
+      }
+
+      if (provider === 'grok') {
+        const token = apiKey || oauthToken || process.env.XAI_API_KEY || process.env.GROK_API_KEY;
+        if (!token) {
+          return res.status(400).json({ error: 'xAI Grok API key or subscription is required.' });
+        }
+        const targetModel = model || 'grok-3';
+        const messages: any[] = [];
+        if (systemInstruction) {
+          messages.push({ role: 'system', content: systemInstruction });
+        }
+        let userContent = prompt;
+        if (responseSchema && !userContent.includes(JSON.stringify(responseSchema))) {
+          userContent += `\n\nREQUIRED JSON SCHEMA:\n${JSON.stringify(responseSchema, null, 2)}\nOutput strictly valid JSON complying with this schema. Do not output markdown code blocks.`;
+        }
+        messages.push({ role: 'user', content: userContent });
+
+        const bodyPayload: any = {
+          model: targetModel,
+          messages,
+          temperature: Number(temperature) || 0.7,
+          max_tokens: Number(maxTokens) || 8192,
+        };
+        if (responseMimeType === 'application/json') {
+          bodyPayload.response_format = { type: 'json_object' };
+        }
+
+        const resp = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(bodyPayload)
+        });
+
+        if (!resp.ok) {
+          const errText = await resp.text();
+          throw new Error(`xAI Grok API error (${resp.status}): ${errText}`);
+        }
+
+        const data: any = await resp.json();
+        const text = data.choices?.[0]?.message?.content || '';
+        return res.json({ text, provider: 'grok', model: targetModel, raw: data });
       }
 
       if (provider === 'anthropic') {

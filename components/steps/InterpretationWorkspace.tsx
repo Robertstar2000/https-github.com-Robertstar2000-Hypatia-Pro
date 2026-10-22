@@ -6,7 +6,17 @@ import { runInterpretationAgent, parseGeminiError } from '../../services';
 import { AgenticAnalysisView } from '../common/AgenticAnalysisView';
 import { renderMarkdown } from '../../utils/markdownRenderer';
 
-export const InterpretationWorkspace = ({ onStepComplete }) => {
+interface InterpretationWorkspaceProps {
+    onStepComplete: () => void;
+    autoStart?: boolean;
+    onOpenEditor?: () => void;
+}
+
+export const InterpretationWorkspace: React.FC<InterpretationWorkspaceProps> = ({ 
+    onStepComplete, 
+    autoStart = false,
+    onOpenEditor 
+}) => {
     const { activeExperiment, updateExperiment, isAuthenticated } = useExperiment();
     const { addToast } = useToast();
     const [agenticRun, setAgenticRun] = useState({
@@ -82,11 +92,11 @@ export const InterpretationWorkspace = ({ onStepComplete }) => {
     }, [activeExperiment, isAuthenticated, addToast, updateExperiment, stepData, agenticRun.status, onStepComplete]);
     
     useEffect(() => {
-        // Automatically start if in automated mode and no output yet
-        if (activeExperiment.automationMode === 'automated' && !stepData.output && agenticRun.status === 'idle') {
+        // Automatically start if in automated mode OR autoStart requested and no output yet
+        if ((activeExperiment.automationMode === 'automated' || autoStart) && !stepData.output && agenticRun.status === 'idle') {
             performAgenticInterpretation();
         }
-    }, [activeExperiment.automationMode, stepData.output, agenticRun.status, performAgenticInterpretation]);
+    }, [activeExperiment.automationMode, autoStart, stepData.output, agenticRun.status, performAgenticInterpretation]);
 
     return (
         <div className="interpretation-workspace">
@@ -115,7 +125,12 @@ export const InterpretationWorkspace = ({ onStepComplete }) => {
                     )}
                     {stepData.output && (
                         <>
-                            <div className="d-flex justify-content-end mb-3">
+                            <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                                {onOpenEditor && (
+                                    <button className="btn btn-xs btn-outline-info d-flex align-items-center gap-1" onClick={onOpenEditor}>
+                                        <i className="bi bi-pencil-fill"></i> EDIT INTERPRETATION
+                                    </button>
+                                )}
                                 <button className="btn btn-xs btn-outline-secondary" onClick={performAgenticInterpretation}>RE-INTERPRET</button>
                             </div>
                             <div className="generated-text-container" dangerouslySetInnerHTML={{ __html: renderMarkdown(stepData.output || '') }} />

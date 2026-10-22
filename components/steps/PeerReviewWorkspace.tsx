@@ -7,7 +7,17 @@ import { GeneratedOutput } from '../common/GeneratedOutput';
 import { AgenticAnalysisView } from '../common/AgenticAnalysisView';
 import { renderMarkdown } from '../../utils/markdownRenderer';
 
-export const PeerReviewWorkspace = ({ onStepComplete }) => {
+interface PeerReviewWorkspaceProps {
+    onStepComplete?: () => void;
+    autoStart?: boolean;
+    onOpenEditor?: () => void;
+}
+
+export const PeerReviewWorkspace: React.FC<PeerReviewWorkspaceProps> = ({ 
+    onStepComplete, 
+    autoStart = false,
+    onOpenEditor 
+}) => {
     const { activeExperiment, updateExperiment, isAuthenticated } = useExperiment();
     const { addToast } = useToast();
     const [agenticRun, setAgenticRun] = useState({
@@ -66,10 +76,10 @@ export const PeerReviewWorkspace = ({ onStepComplete }) => {
     }, [activeExperiment, isAuthenticated, addToast, updateExperiment, stepData, agenticRun.status]);
     
     useEffect(() => {
-        if (!stepData.output && agenticRun.status === 'idle') {
+        if ((!stepData.output || autoStart) && agenticRun.status === 'idle') {
             performAgenticReview();
         }
-    }, [stepData.output, agenticRun.status, performAgenticReview]);
+    }, [stepData.output, autoStart, agenticRun.status, performAgenticReview]);
 
     return (
         <div className="peer-review-container">
@@ -91,7 +101,14 @@ export const PeerReviewWorkspace = ({ onStepComplete }) => {
                             <h6 className="mb-0 fw-bold">Audit Report Generated</h6>
                             <p className="text-white-50 small mb-0">Adversarial agents have completed their critique of your research logic.</p>
                         </div>
-                        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={performAgenticReview}>RE-AUDIT</button>
+                        <div className="ms-auto d-flex align-items-center gap-2">
+                            {onOpenEditor && (
+                                <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={onOpenEditor}>
+                                    <i className="bi bi-pencil-fill"></i> EDIT AUDIT REPORT
+                                </button>
+                            )}
+                            <button className="btn btn-sm btn-outline-secondary" onClick={performAgenticReview}>RE-AUDIT</button>
+                        </div>
                     </div>
 
                     <div className="generated-text-container" dangerouslySetInnerHTML={{ __html: renderMarkdown(stepData.output || '') }} />

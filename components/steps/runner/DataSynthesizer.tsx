@@ -5,8 +5,21 @@ import { parseGeminiError, callGeminiWithRetry, extractJson, safeGetText } from 
 import { AgenticAnalysisView } from '../../common/AgenticAnalysisView';
 import { cleanAndFormatCsv, validateSimulationSchema } from '../../../utils/csvUtils';
 
-export const DataSynthesizer = ({ onComplete, context }) => {
-    const { isAuthenticated } = useExperiment();
+interface DataSynthesizerProps {
+    onComplete: (data: string, summary: string) => void;
+    context: any;
+    autoStart?: boolean;
+    blockerDirective?: string;
+}
+
+export const DataSynthesizer: React.FC<DataSynthesizerProps> = ({ 
+    onComplete, 
+    context,
+    autoStart = false,
+    blockerDirective
+}) => {
+    const { activeExperiment, isAuthenticated } = useExperiment();
+    const effectiveBlockerDirective = blockerDirective || context?.blockerDirective || activeExperiment.stepData[6]?.blockerDirective || activeExperiment.activeBlockerResolution?.msg || '';
     const [result, setResult] = useState<{ summary: string, csv: string } | null>(null);
     const [agenticRun, setAgenticRun] = useState({
         status: 'idle',
@@ -41,6 +54,11 @@ export const DataSynthesizer = ({ onComplete, context }) => {
             const prompt = `Synthesize data vectors for:
                     - Method: "${context.methodology_summary}"
                     - Plan: "${context.data_collection_plan_summary}"
+                    ${effectiveBlockerDirective ? `
+                    CRITICAL ROOT-CAUSE BLOCKER RESOLUTION MANDATE (UNBLOCK AT SOURCE):
+                    The experiment was blocked by this integrity issue: "${effectiveBlockerDirective}".
+                    You MUST adjust the synthetic data vectors, sample distributions, and relationships to resolve and eliminate this blocker at the root source!
+                    ` : ''}
                     
                     ${lastFeedback ? `FAIL: ${lastFeedback}. Fix formatting, No Nulls, ensure N=100 agent records.` : ''}
 
@@ -97,10 +115,25 @@ export const DataSynthesizer = ({ onComplete, context }) => {
             }
         }
         setAgenticRun(prev => ({ ...prev, status: 'failed' }));
-    }, [isAuthenticated, context, agenticRun.status, agenticRun.maxIterations, addToast]);
+    }, [isAuthenticated, context, agenticRun.status, agenticRun.maxIterations, effectiveBlockerDirective, addToast]);
+
+    useEffect(() => {
+        if (autoStart && agenticRun.status === 'idle') {
+            handleSynthesize();
+        }
+    }, [autoStart, agenticRun.status, handleSynthesize]);
 
     return (
         <div className="data-synthesizer-node">
+            {effectiveBlockerDirective && (
+                <div className="alert alert-warning border border-warning d-flex align-items-center mb-3 p-3 small shadow-sm">
+                    <i className="bi bi-shield-exclamation fs-4 text-warning me-2"></i>
+                    <div>
+                        <strong>Unblocking at Root Source:</strong> Data synthesis instructed to eliminate blocker:
+                        <span className="ms-1 text-white fw-bold">"{effectiveBlockerDirective}"</span>
+                    </div>
+                </div>
+            )}
             {agenticRun.status === 'idle' && (
                 <div className="text-center p-4">
                     <h6 className="fw-bold"><i className="bi bi-magic me-2"></i>AI Data Synthesis</h6>

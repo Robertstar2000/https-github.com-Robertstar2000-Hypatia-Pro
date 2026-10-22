@@ -8,7 +8,17 @@ import { GeneratedOutput } from '../common/GeneratedOutput';
 import { AgenticAnalysisView } from '../common/AgenticAnalysisView';
 import { renderMarkdown } from '../../utils/markdownRenderer';
 
-export const LiteratureReviewWorkspace = ({ onStepComplete }) => {
+interface LiteratureReviewWorkspaceProps {
+    onStepComplete: () => void;
+    autoStart?: boolean;
+    onOpenEditor?: () => void;
+}
+
+export const LiteratureReviewWorkspace: React.FC<LiteratureReviewWorkspaceProps> = ({ 
+    onStepComplete, 
+    autoStart = false,
+    onOpenEditor 
+}) => {
     const { activeExperiment, updateExperiment, isAuthenticated } = useExperiment();
     const { addToast } = useToast();
     const [agenticRun, setAgenticRun] = useState({
@@ -195,7 +205,12 @@ export const LiteratureReviewWorkspace = ({ onStepComplete }) => {
     return (
         <div className="lit-review-container">
             {agenticRun.status !== 'running' && stepData.output && (
-                <div className="d-flex justify-content-end mb-3">
+                <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                    {onOpenEditor && (
+                        <button className="btn btn-xs btn-outline-info d-flex align-items-center gap-1" onClick={onOpenEditor}>
+                            <i className="bi bi-pencil-fill"></i> EDIT SYNTHESIS
+                        </button>
+                    )}
                     <button className="btn btn-xs btn-outline-secondary" onClick={performAgenticReview}>
                         <i className="bi bi-arrow-clockwise me-1"></i> RE-SYNC ARCHIVE
                     </button>

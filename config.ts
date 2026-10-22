@@ -54,6 +54,10 @@ export interface StepData {
     simulationCode?: string;
     reviewedByAgent?: boolean;
     reviewedAt?: string;
+    isUserEdited?: boolean;
+    editedAt?: string;
+    originalOutput?: string;
+    blockerDirective?: string;
 }
 
 export interface FineTuneSettings {
@@ -88,6 +92,7 @@ export interface Experiment {
     status?: 'active' | 'archived';
     studyType?: StudyType;
     executiveSummary?: string;
+    activeBlockerResolution?: { blockerId: string; msg: string; sourceStep: number; timestamp: string } | null;
 }
 
 export interface ExperimentContextType {

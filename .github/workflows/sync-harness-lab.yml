@@ -1,55 +1,102 @@
 name: Sync verified Harness Lab publication
 
 on:
+  # Run actual mirror / sync when code is pushed or merged to main
   push:
     branches: [main]
+  # When opened on a pull request, run validation and dry-run (do NOT mirror unmerged PR code)
   pull_request:
     branches: [main]
+  # Allows manual triggering from GitHub Actions tab
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
+# Prevent concurrent mirror runs from conflicting
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   mirror:
     name: mirror
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repository (Full History)
         uses: actions/checkout@v4
         with:
-          # fetch-depth: 0 ensures complete commit history and tags are present for mirroring
+          # fetch-depth: 0 is mandatory for mirroring to avoid "shallow update not allowed" error
           fetch-depth: 0
-          # Use GITHUB_TOKEN with write permission or secret if configured
           token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git Identity
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies & Verify Build
+        run: |
+          echo "Verifying codebase integrity before synchronization..."
+          npm ci || npm install
+          npm run lint
+          npm run build
+          echo "Build and lint checks passed successfully."
+
+      - name: Configure Git Author
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Verify Environment & Prerequisites
-        run: |
-          echo "Triggered by: ${{ github.actor }}"
-          echo "Event: ${{ github.event_name }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "Commit SHA: ${{ github.sha }}"
-
-      - name: Execute Mirror / Sync Step
+      - name: Run Mirror Sync
         env:
-          # Pass target repository URL or token if mirroring to external repo/branch
-          TARGET_REPO_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          TARGET_MIRROR_URL: ${{ secrets.TARGET_MIRROR_URL }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # If target mirror remote is configured via repository secret or environment
-          if [ -n "${{ secrets.TARGET_MIRROR_URL }}" ]; then
-            echo "Syncing to external mirror repository..."
-            git remote add target-mirror "${{ secrets.TARGET_MIRROR_URL }}" || true
-            git push --mirror target-mirror
+          echo "=========================================="
+          echo "Sync verified Harness Lab publication"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref:   ${{ github.ref }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "=========================================="
+
+          # 1. On Pull Requests: perform dry-run validation only.
+          # (Never mirror unmerged pull requests into target publication repositories)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Pull Request detected: Performing validation dry-run."
+            echo "Mirroring is reserved for merged pushes to 'main' or manual workflow_dispatch."
+            echo "Dry-run validation complete. Ready for merge."
+            exit 0
+          fi
+
+          # 2. On Merged Push or Manual Dispatch:
+          if [ -n "$TARGET_MIRROR_URL" ]; then
+            echo "Mirroring to target: $TARGET_MIRROR_URL"
+
+            # Setup SSH key if provided
+            if [ -n "$SSH_PRIVATE_KEY" ]; then
+              echo "Configuring SSH key..."
+              mkdir -p ~/.ssh
+              echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+              chmod 600 ~/.ssh/id_rsa
+              ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+            fi
+
+            # Add or update remote
+            git remote remove target-mirror 2>/dev/null || true
+            git remote add target-mirror "$TARGET_MIRROR_URL"
+
+            # Push mirror
+            echo "Executing git push to target mirror..."
+            git push --mirror target-mirror || git push target-mirror main --tags
+            echo "Mirror synchronization completed successfully!"
           else
-            echo "Target mirror URL not configured; validating local build and verified Harness deliverables..."
-            npm ci || npm install
-            npm run lint
-            npm run build
-            echo "Harness Lab publication verification passed successfully."
+            echo "NOTICE: 'TARGET_MIRROR_URL' secret is not defined in GitHub repository settings."
+            echo "Local verification succeeded. To enable mirroring to a secondary repo:"
+            echo "1. Go to GitHub Repo -> Settings -> Secrets and variables -> Actions"
+            echo "2. Add 'TARGET_MIRROR_URL' (e.g. git@github.com:org/target-repo.git)"
+            echo "3. Add 'SSH_PRIVATE_KEY' or configure 'PAT_TOKEN'."
           fi

@@ -12,7 +12,17 @@ import { DatasetViewer } from './DatasetViewer';
 
 type ExperimentMode = 'simulate' | 'manual' | 'synthesize' | 'upload';
 
-export const ExperimentRunner = ({ onStepComplete }) => {
+interface ExperimentRunnerProps {
+    onStepComplete: (data: any) => void;
+    autoStart?: boolean;
+    onOpenEditor?: () => void;
+}
+
+export const ExperimentRunner: React.FC<ExperimentRunnerProps> = ({ 
+    onStepComplete,
+    autoStart = false,
+    onOpenEditor
+}) => {
     const [mode, setMode] = useState<ExperimentMode | null>(null);
     const { addToast } = useToast();
     const { activeExperiment } = useExperiment();
@@ -27,15 +37,21 @@ export const ExperimentRunner = ({ onStepComplete }) => {
         setForceShowSelector(false);
     }, [activeExperiment?.id]);
 
-    // Auto-select mode for automated workflows
+    // Auto-select mode for automated workflows or autoStart or active blocker resolution
+    const blockerDirective = activeExperiment.stepData[6]?.blockerDirective || activeExperiment.activeBlockerResolution?.msg || "";
+
     useEffect(() => {
-        if (activeExperiment?.automationMode === 'automated' && !mode) {
+        if ((activeExperiment?.automationMode === 'automated' || autoStart || blockerDirective) && !mode) {
             // Default to 'simulate' as it provides more rigorous results than 'synthesize' 
             // but is still fully automated.
             setMode('simulate');
-            addToast("Agentic Override: Initializing Code Simulation...", "info");
+            if (blockerDirective) {
+                addToast("Simulation Runner: Re-running simulation with blocker resolution directives...", "info");
+            } else {
+                addToast("Simulation Runner: Initializing empirical synthesis...", "info");
+            }
         }
-    }, [activeExperiment?.automationMode, mode, addToast]);
+    }, [activeExperiment?.automationMode, autoStart, blockerDirective, mode, addToast]);
 
     const handleDataSubmission = async (data: string, summary: string, simulationCode?: string) => {
         const cleanedData = cleanAndFormatCsv(data);
@@ -56,8 +72,9 @@ export const ExperimentRunner = ({ onStepComplete }) => {
         question: activeExperiment.stepData[1]?.output || activeExperiment.stepData[1]?.input || "N/A",
         hypothesis: activeExperiment.stepData[3]?.output || "N/A",
         methodology_summary: activeExperiment.stepData[4]?.summary || activeExperiment.stepData[4]?.output || "N/A",
-        data_collection_plan_summary: activeExperiment.stepData[5]?.summary || activeExperiment.stepData[5]?.output || "N/A"
-    }), [activeExperiment]);
+        data_collection_plan_summary: activeExperiment.stepData[5]?.summary || activeExperiment.stepData[5]?.output || "N/A",
+        blockerDirective: blockerDirective
+    }), [activeExperiment, blockerDirective]);
 
     // Show beautiful DatasetViewer if CSV data has already been acquired and we are not forcing the mode selection/editor view
     if (existingCsv && !forceShowSelector) {
@@ -78,6 +95,20 @@ export const ExperimentRunner = ({ onStepComplete }) => {
 
     return (
         <div>
+            {blockerDirective && (
+                <div className="alert alert-warning border border-warning d-flex align-items-center mb-3 p-3 shadow-sm">
+                    <i className="bi bi-arrow-counterclockwise fs-4 text-warning me-3"></i>
+                    <div>
+                        <div className="fw-bold text-uppercase" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>
+                            Root-Cause Blocker Resolution Active
+                        </div>
+                        <div className="small text-white-50">
+                            Data collection and simulation are being re-run to resolve blocker at the root source:
+                            <span className="text-warning fw-bold ms-1">"{blockerDirective}"</span>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <button 
                     className="btn btn-sm btn-outline-secondary" 
@@ -97,9 +128,23 @@ export const ExperimentRunner = ({ onStepComplete }) => {
 
             <div className="experiment-mode-container card p-4">
                 {mode === 'upload' && <DataUploader onComplete={handleDataSubmission} />}
-                {mode === 'simulate' && <CodeSimulator onComplete={handleDataSubmission} context={context} />}
+                {mode === 'simulate' && (
+                    <CodeSimulator 
+                        onComplete={handleDataSubmission} 
+                        context={context} 
+                        autoStart={autoStart}
+                        blockerDirective={blockerDirective}
+                    />
+                )}
                 {mode === 'manual' && <ManualDataEntry onComplete={handleDataSubmission} context={context} />}
-                {mode === 'synthesize' && <DataSynthesizer onComplete={handleDataSubmission} context={context} />}
+                {mode === 'synthesize' && (
+                    <DataSynthesizer 
+                        onComplete={handleDataSubmission} 
+                        context={context} 
+                        autoStart={autoStart}
+                        blockerDirective={blockerDirective}
+                    />
+                )}
             </div>
         </div>
     );

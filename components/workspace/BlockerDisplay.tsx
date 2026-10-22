@@ -62,7 +62,7 @@ export const BlockerDisplay: React.FC<BlockerDisplayProps> = ({
                                                 className="btn btn-xs btn-info text-dark fw-bold d-flex align-items-center gap-1 font-mono shadow-sm"
                                                 onClick={() => onAutoResolve(blocker)}
                                                 disabled={isAutoResolving}
-                                                title={`Auto Resolve: Re-run the phase/step inserting instructions to resolve: "${blocker.msg}"`}
+                                                title={`Auto Resolve: Rewind to Step 6 (Data Collection & Simulation), inserting blocker directive to unblock at source: "${blocker.msg}"`}
                                             >
                                                 <i className={`bi ${isAutoResolving ? 'bi-arrow-repeat spin' : 'bi-magic'}`}></i>
                                                 <span>Auto Resolve</span>
@@ -88,14 +88,14 @@ export const BlockerDisplay: React.FC<BlockerDisplayProps> = ({
                                 <strong>• User Mitigated Button:</strong> Manually overrides and marks an individual blocker as <em>Mitigated</em> without re-executing agents. Use this when you acknowledge a warning or manually fix issues outside the system.
                             </div>
                             <div className="mb-2">
-                                <strong>• Auto Resolve Button:</strong> Automatically re-runs the phase/step and inserts directives into the step/phase prompting instructing the AI agent to: <em>resolve the &lt;blocker description&gt;</em>.
+                                <strong>• Auto Resolve Button:</strong> Rewinds back to <strong>Step 6 (Data Collection &amp; Simulation)</strong> and automatically re-runs data acquisition, inserting the blocker issue directly into the simulation and collection prompts to unblock at the root source.
                             </div>
                             <div className="mb-2">
                                 <strong>• VERIFY &amp; CONTINUE Button:</strong> Performs a comprehensive node integrity audit across all step outputs and blockers. It remains locked while any <em>Critical</em> blocker is active. Once all blockers are resolved or cleared, clicking this button validates the step data and advances the experiment.
                             </div>
                             <div className="p-2 rounded bg-black bg-opacity-10 border border-dark border-opacity-10 mt-2" style={{ fontSize: '0.73rem' }}>
                                 <strong>Interaction Summary:</strong> 
-                                Clicking <strong>Auto Resolve</strong> automatically re-runs the step/phase with targeted corrective instructions. Alternatively, clicking <strong>User Mitigated</strong> marks the blocker resolved manually. Either method clears active critical blockers, unlocking <strong>Verify &amp; Continue</strong> to proceed.
+                                Clicking <strong>Auto Resolve</strong> rewinds to Data Collection &amp; Simulation (if used), injecting the blocker issue into the prompts to eliminate it at its root source. Alternatively, clicking <strong>User Mitigated</strong> marks the blocker resolved manually. Either method clears active critical blockers, unlocking <strong>Verify &amp; Continue</strong> to proceed.
                             </div>
                         </div>
                     </div>

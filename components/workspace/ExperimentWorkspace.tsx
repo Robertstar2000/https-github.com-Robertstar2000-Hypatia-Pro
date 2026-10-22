@@ -38,6 +38,8 @@ import { StatisticalPowerCalculator } from '../common/StatisticalPowerCalculator
 import { compressExperimentContext } from '../../utils/contextCache';
 import { ReplicabilityScorecardModal } from '../common/ReplicabilityScorecardModal';
 import { finalizeAndDeployResearch } from '../../utils/scientificPaperExporter';
+import { StopProcessModal } from './StopProcessModal';
+import { StepResultEditorModal } from './StepResultEditorModal';
 
 const RESEARCH_PHASES = [
     { name: "Hypothesis", steps: [1, 2, 3], icon: "bi-lightbulb-fill" },
@@ -63,6 +65,11 @@ export const ExperimentWorkspace = () => {
     const [showProvenanceGraph, setShowProvenanceGraph] = useState(false);
     const [showPowerCalc, setShowPowerCalc] = useState(false);
     const [showScorecardModal, setShowScorecardModal] = useState(false);
+
+    // Manual control and editing state
+    const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
+    const [showResultEditor, setShowResultEditor] = useState(false);
+    const [autoGenerateStepInManual, setAutoGenerateStepInManual] = useState<number | null>(null);
 
     // Responsive State
     const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
@@ -191,6 +198,106 @@ export const ExperimentWorkspace = () => {
         }
     }, [activeExperiment, activeStep, isAuthenticated, isLoading, isVerifying, automationPaused, reviewCountdown, addToast]);
 
+    // Manual Pipeline Progression Engine: Trigger next step generation after user verified previous step
+    useEffect(() => {
+        if (!activeExperiment || !isAuthenticated || isLoading || isVerifying) return;
+        if (activeExperiment.automationMode !== 'manual') return;
+        if (autoGenerateStepInManual === null) return;
+        
+        if (autoGenerateStepInManual === activeStep) {
+            const targetStep = autoGenerateStepInManual;
+            setAutoGenerateStepInManual(null);
+            
+            const stepData = activeExperiment.stepData?.[targetStep];
+            const isAgenticStep = [2, 6, 7, 8, 9, 10].includes(targetStep);
+            
+            // Only auto-generate if the step doesn't already have output
+            if (!stepData?.output) {
+                if (!isAgenticStep || targetStep === 3) {
+                    const timerId = setTimeout(() => {
+                        if (isMounted.current && !isLoading && !isVerifying) {
+                            addToast(`Manual pipeline: Synthesizing Step ${targetStep} based on previous verified content...`, 'info');
+                            handleGenerate();
+                        }
+                    }, 350);
+                    return () => clearTimeout(timerId);
+                } else {
+                    addToast(`Manual pipeline: Step ${targetStep} initialized with verified context.`, 'info');
+                }
+            }
+        }
+    }, [autoGenerateStepInManual, activeStep, activeExperiment, isAuthenticated, isLoading, isVerifying, addToast]);
+
+    // Manual Halt / Stop Handler
+    const handleConfirmStop = () => {
+        if (streamInterval.current) {
+            clearInterval(streamInterval.current);
+            streamInterval.current = null;
+        }
+        if (countdownInterval.current) {
+            clearInterval(countdownInterval.current);
+            countdownInterval.current = null;
+        }
+        setReviewCountdown(null);
+        setIsLoading(false);
+        setIsVerifying(false);
+        setStreamingText(null);
+        setStatusMessage("");
+        setAutomationPaused(true);
+        setAutoGenerateStepInManual(null);
+
+        if (activeExperiment) {
+            updateExperiment({
+                ...activeExperiment,
+                automationMode: 'manual'
+            });
+        }
+
+        setShowStopConfirmModal(false);
+        addToast("Process stopped by user. Research session is now in manual control mode.", "info");
+    };
+
+    // User Save Edits Handler
+    const handleSaveStepEdits = async (editedOutput: string) => {
+        if (!activeExperiment) return;
+        const currentData = activeExperiment.stepData?.[activeStep] || {};
+        
+        let freshSummary = "";
+        try {
+            freshSummary = await generateNodeSummary(editedOutput, activeExperiment.field);
+        } catch {
+            freshSummary = editedOutput.slice(0, 200);
+        }
+
+        const updatedStepData = {
+            ...currentData,
+            output: editedOutput,
+            summary: freshSummary,
+            isUserEdited: true,
+            editedAt: new Date().toISOString(),
+            originalOutput: currentData.originalOutput || currentData.output
+        };
+
+        const updatedExperiment = {
+            ...activeExperiment,
+            stepData: {
+                ...activeExperiment.stepData,
+                [activeStep]: updatedStepData
+            }
+        };
+
+        await updateExperiment(updatedExperiment);
+        setShowResultEditor(false);
+        addToast(`Step ${activeStep} result updated with your edits.`, "success");
+    };
+
+    // User Save & Verify Step Handler
+    const handleSaveAndVerifyStep = async (editedOutput: string) => {
+        if (!activeExperiment) return;
+        await handleSaveStepEdits(editedOutput);
+        await handleCompleteStep({ output: editedOutput, isUserEdited: true });
+    };
+
     const handleStepChange = useCallback((stepId: number) => {
         if (isLoading || isVerifying) return;
         setStreamingText(null);
@@ -220,23 +327,67 @@ export const ExperimentWorkspace = () => {
 
         setIsAutoResolving(true);
         setAutomationPaused(false);
-        addToast(`Auto-resolving blocker: re-running Step ${activeStep}...`, "info");
+        const sourceStep = activeStep;
+        const blockerMsg = blocker.msg;
+        const blockerDirective = `resolve the blocker issue: ${blockerMsg}`;
 
-        const blockerDirective = `resolve the ${blocker.msg}`;
+        addToast(`Auto-resolving blocker at root source: rewinding to Step 6 (Data Acquisition & Simulation)...`, "info");
 
         try {
-            // Mark blocker as resolved in experiment state
+            // 1. Mark blocker as resolved on originating step
             const stepData = { ...(activeExperiment.stepData || {}) };
-            const currentStepData = { ...(stepData[activeStep] || {}) };
+            const currentStepData = { ...(stepData[sourceStep] || {}) };
             const blockers = (currentStepData.blockers || []).map(b => 
                 b.id === blocker.id ? { ...b, resolved: true } : b
             );
-            stepData[activeStep] = { ...currentStepData, blockers };
-            await updateExperiment({ ...activeExperiment, stepData });
+            stepData[sourceStep] = { ...currentStepData, blockers };
 
-            // Re-run the phase/step inserting instructions to: resolve the <insert blocker description> into the step/phase prompting
-            await handleGenerate(`Instructions: ${blockerDirective}`);
-            addToast(`Step ${activeStep} re-executed with instructions to ${blockerDirective}.`, "success");
+            // 2. Prepare Step 6 for re-run: clear old data/code and insert the blocker issue into prompts
+            const prevStep6 = stepData[6] || {};
+            stepData[6] = {
+                ...prevStep6,
+                input: undefined,
+                output: undefined,
+                summary: undefined,
+                simulationCode: undefined, // Clear old code so fresh code is generated addressing the blocker
+                blockerDirective: blockerDirective,
+                isUserEdited: false
+            };
+
+            // 3. Invalidate downstream steps (7 through sourceStep) that relied on the blocked data
+            for (let s = 7; s <= Math.max(sourceStep, 7); s++) {
+                if (stepData[s]) {
+                    stepData[s] = {
+                        ...stepData[s],
+                        output: undefined,
+                        summary: undefined,
+                        isUserEdited: false
+                    };
+                }
+            }
+
+            const activeBlockerResolution = {
+                blockerId: blocker.id,
+                msg: blockerMsg,
+                sourceStep: sourceStep,
+                timestamp: new Date().toISOString()
+            };
+
+            const updatedExperiment = {
+                ...activeExperiment,
+                currentStep: 6,
+                stepData,
+                activeBlockerResolution
+            };
+
+            await updateExperiment(updatedExperiment);
+            setActiveStep(6);
+
+            // In manual mode, indicate Step 6 should auto-generate so the simulation / data collection runs immediately,
+            // then stops upon completion to allow user review/edit per manual mode requirements.
+            setAutoGenerateStepInManual(6);
+
+            addToast(`Rewound to Step 6: Data collection & simulation will rerun with blocker directive: "${blockerMsg}".`, "success");
         } catch (err: any) {
             console.error("Auto resolve error:", err);
             addToast("Failed to auto-resolve blocker.", "danger");
@@ -380,7 +531,8 @@ export const ExperimentWorkspace = () => {
         }
         
         try {
-            let summary = currentStepData.summary;
+            // Recalculate summary from edited content if user edited or override output provided
+            let summary = (currentStepData.isUserEdited || stepDataOverride?.output) ? undefined : currentStepData.summary;
             if (!summary && currentOutput.length > 50) {
                 if (activeStep === 3) {
                     try {
@@ -429,7 +581,12 @@ export const ExperimentWorkspace = () => {
                 updatedStepDataMap[7] = { ...(updatedStepDataMap[7] || {}), input: csvData, output: undefined, summary: undefined };
             }
 
-            const updatedExp = { ...activeExperiment, stepData: updatedStepDataMap, currentStep: nextStepId };
+            const updatedExp = { 
+                ...activeExperiment, 
+                stepData: updatedStepDataMap, 
+                currentStep: nextStepId,
+                activeBlockerResolution: activeStep === 6 ? null : activeExperiment.activeBlockerResolution 
+            };
             await updateExperiment(updatedExp);
 
             // Execute the Finalize and Deploy workflow on step 10
@@ -451,13 +608,16 @@ export const ExperimentWorkspace = () => {
             }
 
             if (isMounted.current) {
-                addToast(`Step ${activeStep} complete.`, "success");
+                addToast(`Step ${activeStep} verified.`, "success");
                 setActiveStep(nextStepId);
                 
                 // Force automation to resume immediately if applicable
                 if (activeExperiment.automationMode === 'automated') {
                     setAutomationPaused(false);
                     lastAutomationTick.current = 0; // Reset tick to trigger immediate effect
+                } else if (activeExperiment.automationMode === 'manual' && nextStepId <= WORKFLOW_STEPS.length) {
+                    // In manual mode, automatically proceed to generate next step based on previous edited content!
+                    setAutoGenerateStepInManual(nextStepId);
                 }
 
                 // Ensure sidebar is expanded to show progress
@@ -489,18 +649,62 @@ export const ExperimentWorkspace = () => {
             return <AutomationModeSelector onSelect={(mode) => updateExperiment({...activeExperiment, automationMode: mode})} />;
         }
         
-        if (activeStep === 2) return <LiteratureReviewWorkspace onStepComplete={() => handleAutoAdvance(2)} />;
-        if (activeStep === 3) return <HypothesisWorkspace onStepComplete={() => handleCompleteStep()} onGenerate={(feedback) => handleGenerate(feedback)} isLoading={isLoading} />;
-                if (activeStep === 6) {
+        if (activeStep === 2) return (
+            <LiteratureReviewWorkspace 
+                onStepComplete={() => handleAutoAdvance(2)} 
+                autoStart={autoGenerateStepInManual === 2 || activeExperiment.automationMode === 'automated'}
+                onOpenEditor={() => setShowResultEditor(true)}
+            />
+        );
+        if (activeStep === 3) return (
+            <HypothesisWorkspace 
+                onStepComplete={() => handleCompleteStep()} 
+                onGenerate={(feedback) => handleGenerate(feedback)} 
+                isLoading={isLoading} 
+            />
+        );
+        if (activeStep === 6) {
+             const step6Blocker = activeExperiment.stepData[6]?.blockerDirective || activeExperiment.activeBlockerResolution?.msg;
              if (activeExperiment.experimentMode === 'physical') {
-                 return <DataEntryWorkspace experiment={activeExperiment} onComplete={(data) => handleCompleteStep({ output: JSON.stringify(data), input: JSON.stringify(data) })} />;
+                 return (
+                     <DataEntryWorkspace 
+                         experiment={activeExperiment} 
+                         blockerDirective={step6Blocker}
+                         onComplete={(data) => handleCompleteStep({ output: JSON.stringify(data), input: JSON.stringify(data) })} 
+                     />
+                 );
              } else {
-                 return <ExperimentRunner onStepComplete={(data: any) => { handleCompleteStep(data); }} />;
+                 return (
+                     <ExperimentRunner 
+                         onStepComplete={(data: any) => { handleCompleteStep(data); }} 
+                         autoStart={autoGenerateStepInManual === 6 || activeExperiment.automationMode === 'automated'}
+                         onOpenEditor={() => setShowResultEditor(true)}
+                     />
+                 );
              }
         }
-        if (activeStep === 7) return <DataAnalysisWorkspace onStepComplete={() => handleAutoAdvance(7)} onAnalysisFailure={handleAnalysisFailure} />;
-        if (activeStep === 8) return <InterpretationWorkspace onStepComplete={() => handleAutoAdvance(8)} />;
-        if (activeStep === 9) return <PeerReviewWorkspace onStepComplete={() => handleAutoAdvance(9)} />;
+        if (activeStep === 7) return (
+            <DataAnalysisWorkspace 
+                onStepComplete={() => handleAutoAdvance(7)} 
+                onAnalysisFailure={handleAnalysisFailure} 
+                autoStart={autoGenerateStepInManual === 7 || activeExperiment.automationMode === 'automated'}
+                onOpenEditor={() => setShowResultEditor(true)}
+            />
+        );
+        if (activeStep === 8) return (
+            <InterpretationWorkspace 
+                onStepComplete={() => handleAutoAdvance(8)} 
+                autoStart={autoGenerateStepInManual === 8 || activeExperiment.automationMode === 'automated'}
+                onOpenEditor={() => setShowResultEditor(true)}
+            />
+        );
+        if (activeStep === 9) return (
+            <PeerReviewWorkspace 
+                onStepComplete={() => handleAutoAdvance(9)} 
+                autoStart={autoGenerateStepInManual === 9 || activeExperiment.automationMode === 'automated'}
+                onOpenEditor={() => setShowResultEditor(true)}
+            />
+        );
         if (activeStep === 10) return <PublicationExporter />;
 
         return (
@@ -810,6 +1014,13 @@ export const ExperimentWorkspace = () => {
                                                 </button>
                                             )}
                                             <button 
+                                                className="btn btn-xs btn-danger fw-bold d-flex align-items-center gap-1 shadow-sm"
+                                                onClick={() => setShowStopConfirmModal(true)}
+                                                title="Stop the ongoing process"
+                                            >
+                                                <i className="bi bi-stop-circle-fill"></i> STOP
+                                            </button>
+                                            <button 
                                                 className="btn btn-xs btn-outline-secondary text-white-50"
                                                 onClick={() => {
                                                     updateExperiment({ ...activeExperiment, automationMode: 'manual' });
@@ -833,6 +1044,16 @@ export const ExperimentWorkspace = () => {
                                     </div>
                                 ) : (
                                     <div className="d-flex align-items-center gap-2">
+                                        {(isLoading || isVerifying || isAutoResolving) && (
+                                            <button 
+                                                className="btn btn-sm btn-danger fw-bold d-flex align-items-center gap-1.5 shadow-sm px-2.5 py-1.5"
+                                                onClick={() => setShowStopConfirmModal(true)}
+                                                title="Stop the current running process"
+                                            >
+                                                <i className="bi bi-stop-circle-fill"></i>
+                                                <span className="small font-mono">STOP PROCESS</span>
+                                            </button>
+                                        )}
                                         <button 
                                             className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5 shadow-sm"
                                             onClick={() => {
@@ -930,6 +1151,35 @@ export const ExperimentWorkspace = () => {
 
                         <hr className="border-secondary opacity-10 mb-4" />
                         
+                        {activeExperiment?.activeBlockerResolution && activeStep === 6 && (
+                            <div className="alert alert-info border border-info d-flex align-items-center justify-content-between p-3 mb-4 shadow-sm animate-in">
+                                <div className="d-flex align-items-center gap-3">
+                                    <div className="p-2 rounded bg-info bg-opacity-20 text-info">
+                                        <i className="bi bi-arrow-repeat spin fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <div className="fw-bold text-uppercase small ls-1 text-info">
+                                            Root-Cause Blocker Resolution Active (Step 6)
+                                        </div>
+                                        <div className="small text-white-50">
+                                            Rerunning Data Collection &amp; Simulation to unblock issue from Step {activeExperiment.activeBlockerResolution.sourceStep}: 
+                                            <span className="text-white fw-bold ms-1">"{activeExperiment.activeBlockerResolution.msg}"</span>.
+                                            Directives inserted into simulation and collection prompts.
+                                        </div>
+                                    </div>
+                                </div>
+                                <button 
+                                    className="btn btn-xs btn-outline-light text-nowrap"
+                                    onClick={async () => {
+                                        await updateExperiment({ ...activeExperiment, activeBlockerResolution: null });
+                                    }}
+                                    title="Dismiss root-cause resolution banner"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
+
                         {currentStepData?.blockers && (
                             <BlockerDisplay 
                                 blockers={currentStepData.blockers} 
@@ -955,10 +1205,53 @@ export const ExperimentWorkspace = () => {
                                         <span className="badge bg-primary bg-opacity-20 text-primary-glow font-mono small border border-primary border-opacity-25 px-2.5 py-1">
                                             <i className="bi bi-cpu me-1"></i> Running Pipeline
                                         </span>
+                                        <button 
+                                            className="btn btn-danger btn-xs fw-bold d-flex align-items-center gap-1 px-2.5 py-1 shadow-sm"
+                                            onClick={() => setShowStopConfirmModal(true)}
+                                            title="Stop the current running process"
+                                        >
+                                            <i className="bi bi-stop-circle-fill"></i> STOP
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="progress mt-2.5 bg-dark" style={{ height: '3px' }}>
                                     <div className="progress-bar progress-bar-striped progress-bar-animated bg-primary-glow w-100"></div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Manual Mode Review & Edit Notice: shown whenever step has output and mode is manual */}
+                        {activeExperiment.automationMode === 'manual' && currentStepData?.output && !isLoading && !isVerifying && (
+                            <div className="alert border-info border-opacity-30 bg-black bg-opacity-40 p-3 rounded-3 mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 shadow-sm animate-in">
+                                <div className="d-flex align-items-center gap-2.5">
+                                    <div className="p-2 rounded-circle bg-info bg-opacity-15 text-info border border-info border-opacity-30 d-flex align-items-center justify-content-center shrink-0">
+                                        <i className="bi bi-pencil-square fs-5"></i>
+                                    </div>
+                                    <div>
+                                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                                            <strong className="text-white small font-mono">
+                                                STEP {activeStep} COMPLETE &bull; MANUAL REVIEW
+                                            </strong>
+                                            {currentStepData.isUserEdited && (
+                                                <span className="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30 font-mono" style={{ fontSize: '0.68rem' }}>
+                                                    <i className="bi bi-check2 me-1"></i> EDITED
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-white-50" style={{ fontSize: '0.78rem' }}>
+                                            Review or edit this step's output below. When you click Verify, Step {activeStep < WORKFLOW_STEPS.length ? activeStep + 1 : '10'} will generate based on your edited content.
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-2 w-100 w-sm-auto justify-content-end shrink-0">
+                                    <button 
+                                        className="btn btn-sm btn-outline-info fw-bold d-flex align-items-center gap-1.5 px-3 py-1.5"
+                                        onClick={() => setShowResultEditor(true)}
+                                        title="Edit the result of this step"
+                                    >
+                                        <i className="bi bi-pencil-fill"></i>
+                                        <span>Edit Step {activeStep} Result</span>
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -968,7 +1261,7 @@ export const ExperimentWorkspace = () => {
                     
                     {activeStep <= WORKFLOW_STEPS.length && (
                         <div className="card-footer d-flex flex-column flex-md-row justify-content-between align-items-center p-3 bg-dark bg-opacity-25 border-top border-secondary border-opacity-10 gap-3">
-                            <div className="d-flex align-items-center gap-2 w-100 w-md-auto">
+                            <div className="d-flex align-items-center gap-2 w-100 w-md-auto flex-wrap">
                                 <button 
                                     className="btn btn-sm btn-outline-secondary" 
                                     onClick={() => setFineTuneModalOpen(true)}
@@ -985,9 +1278,20 @@ export const ExperimentWorkspace = () => {
                                     <i className="bi bi-download text-info"></i>
                                     <span>Download Project</span>
                                 </button>
+                                {hasOutput && (
+                                    <button 
+                                        className="btn btn-sm btn-outline-info text-white d-flex align-items-center gap-1.5" 
+                                        onClick={() => setShowResultEditor(true)}
+                                        data-tooltip="Edit the generated output for this step"
+                                        title="Edit Step Result"
+                                    >
+                                        <i className="bi bi-pencil-square text-info"></i>
+                                        <span>Edit Result</span>
+                                    </button>
+                                )}
                             </div>
                             <button 
-                                className={`btn btn-${hasCriticalBlocker ? 'outline-danger' : 'success'} px-4 shadow-sm w-100 w-md-auto`} 
+                                className={`btn btn-${hasCriticalBlocker ? 'outline-danger' : 'success'} px-4 shadow-sm w-100 w-md-auto fw-bold`} 
                                 onClick={() => handleCompleteStep()} 
                                 disabled={isVerifying || !hasOutput || hasCriticalBlocker}
                                 data-tooltip={hasCriticalBlocker ? "Execution blocked until critical issues are resolved" : (activeStep === 10 ? "Finalizes scientific manuscript and launches export bundle options" : "Validates current node outputs and advances to the next step")}
@@ -997,7 +1301,13 @@ export const ExperimentWorkspace = () => {
                                 ) : (
                                     <span className="d-flex align-items-center">
                                         <i className={`bi ${hasCriticalBlocker ? 'bi-lock-fill' : (hasOutput ? 'bi-check-circle-fill' : 'bi-lock-fill')} me-2`}></i> 
-                                        {hasCriticalBlocker ? 'BLOCKED' : (activeStep === 10 ? "FINALIZE AND DEPLOY" : "VERIFY & CONTINUE")}
+                                        {hasCriticalBlocker 
+                                            ? 'BLOCKED' 
+                                            : (activeStep === 10 
+                                                ? "FINALIZE AND DEPLOY" 
+                                                : (activeExperiment.automationMode === 'manual' 
+                                                    ? `VERIFY & GENERATE STEP ${activeStep + 1} »` 
+                                                    : "VERIFY & CONTINUE"))}
                                     </span>
                                 )}
                             </button>
@@ -1014,6 +1324,26 @@ export const ExperimentWorkspace = () => {
                 isOpen={showScorecardModal}
                 onClose={() => setShowScorecardModal(false)}
                 experiment={activeExperiment}
+            />
+
+            <StopProcessModal 
+                isOpen={showStopConfirmModal}
+                onConfirm={handleConfirmStop}
+                onCancel={() => setShowStopConfirmModal(false)}
+                currentStep={activeStep}
+                stepTitle={WORKFLOW_STEPS[activeStep - 1]?.title}
+                isGenerating={isLoading || isVerifying}
+            />
+
+            <StepResultEditorModal 
+                isOpen={showResultEditor}
+                onClose={() => setShowResultEditor(false)}
+                stepId={activeStep}
+                stepTitle={WORKFLOW_STEPS[activeStep - 1]?.title || `Step ${activeStep}`}
+                currentOutput={currentStepData?.output || ''}
+                originalOutput={currentStepData?.originalOutput}
+                onSave={handleSaveStepEdits}
+                onSaveAndVerify={handleSaveAndVerifyStep}
             />
         </div>
     );

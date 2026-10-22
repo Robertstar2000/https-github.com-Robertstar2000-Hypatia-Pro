@@ -14,7 +14,10 @@ export const getStepContext = async (experiment: Experiment, currentStepId: numb
     // Helper to get summary or output, with JSON awareness
     const getC = (step: number) => {
         if (!data[step]) return "Not yet generated.";
-        const rawContent = data[step].summary || data[step].output || "Not yet generated.";
+        // Prioritize user-edited output so next step receives the user's modifications
+        const rawContent = (data[step].isUserEdited && data[step].output) 
+            ? data[step].output 
+            : (data[step].summary || data[step].output || "Not yet generated.");
         const content = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
         
         // If the content is JSON (common in Step 1, 2, 7), try to extract the descriptive part
@@ -62,6 +65,7 @@ export const getStepContext = async (experiment: Experiment, currentStepId: numb
         experimental_data_summary: getC(6), 
         analysis_summary: getC(7),
         conclusion_summary: getC(8),
+        blockerDirective: (experiment as any).activeBlockerResolution?.msg || data[6]?.blockerDirective || "",
         references: (() => {
             try {
                 return data[2]?.output ? JSON.parse(extractJson(data[2].output)).references : [];
@@ -249,9 +253,19 @@ export const getPromptForStep = (
             break;
 
         case 6: // Experiment Runner / Data Synthesis
+            const effectiveBlocker = context.blockerDirective || (feedback?.includes("blocker") ? feedback : "");
+            const blockerPromptInsertion = effectiveBlocker ? `
+            CRITICAL ROOT-CAUSE BLOCKER RESOLUTION MANDATE (UNBLOCK AT SOURCE):
+            The previous iteration of the scientific workflow was blocked by this integrity issue:
+            "${effectiveBlocker}"
+            You MUST adjust the simulated variables, data generation parameters, noise models, and sample distributions to resolve and eliminate this blocker at the root source.
+            ` : "";
+
             basePrompt = `${role}
             Generate synthetic CSV data for testing hypothesis: "${context.hypothesis}".
             
+            ${blockerPromptInsertion}
+
             METHODOLOGY: ${context.methodology_summary}
             DATA PLAN: ${context.data_collection_plan_summary}
             

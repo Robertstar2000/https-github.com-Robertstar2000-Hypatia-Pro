@@ -1,7 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { useToast } from '../../toast';
 
-export const DataEntryWorkspace = ({ experiment, onComplete }: { experiment: any, onComplete: (data: any) => void }) => {
+export const DataEntryWorkspace = ({ 
+    experiment, 
+    onComplete,
+    blockerDirective
+}: { 
+    experiment: any; 
+    onComplete: (data: any) => void;
+    blockerDirective?: string;
+}) => {
+    const effectiveBlocker = blockerDirective || experiment?.stepData?.[6]?.blockerDirective || experiment?.activeBlockerResolution?.msg;
     const [data, setData] = useState<any[]>([]);
     const [headers, setHeaders] = useState<string[]>(['Variable1', 'Variable2', 'Result']); // Default
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -63,6 +72,15 @@ export const DataEntryWorkspace = ({ experiment, onComplete }: { experiment: any
     return (
         <div className="card bg-dark text-white p-4">
             <h3>Data Entry</h3>
+            {effectiveBlocker && (
+                <div className="alert alert-warning border border-warning d-flex align-items-center mb-4 p-3 shadow-sm">
+                    <i className="bi bi-shield-exclamation fs-4 text-warning me-3"></i>
+                    <div>
+                        <div className="fw-bold text-uppercase small ls-1">Unblocking at Root Source</div>
+                        <div className="small">Please provide or adjust empirical data to resolve blocker: <strong>"{effectiveBlocker}"</strong></div>
+                    </div>
+                </div>
+            )}
             <div className="d-flex gap-2 mb-4">
                 <button className="btn btn-outline-primary" onClick={downloadTemplate}>Download Template</button>
                 <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()}>Upload Filled Spreadsheet</button>

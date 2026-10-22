@@ -83,8 +83,21 @@ const summary = "A physical simulation of velocity over time under constant grav
 hypatia.finish(csvData, summary);
 `;
 
-export const CodeSimulator = ({ onComplete, context }) => {
+interface CodeSimulatorProps {
+    onComplete: (data: string, summary: string, simulationCode?: string) => void;
+    context: any;
+    autoStart?: boolean;
+    blockerDirective?: string;
+}
+
+export const CodeSimulator: React.FC<CodeSimulatorProps> = ({ 
+    onComplete, 
+    context,
+    autoStart = false,
+    blockerDirective
+}) => {
     const { activeExperiment, updateExperiment, isAuthenticated } = useExperiment();
+    const effectiveBlockerDirective = blockerDirective || context?.blockerDirective || activeExperiment.stepData[6]?.blockerDirective || activeExperiment.activeBlockerResolution?.msg || '';
     const [code, setCode] = useState(() => {
         const stored = activeExperiment.stepData[6]?.simulationCode;
         if (stored) return stored;
@@ -167,12 +180,19 @@ export const CodeSimulator = ({ onComplete, context }) => {
                         - Hypothesis: "${context.hypothesis}"
                         - Methodology: "${context.methodology_summary?.substring(0, 5000)}"
                         - Data Plan (containing Input & Output Data Templates): "${context.data_collection_plan_summary?.substring(0, 5000)}"
+                        ${effectiveBlockerDirective ? `
+                        CRITICAL ROOT-CAUSE BLOCKER RESOLUTION MANDATE (UNBLOCK AT SOURCE):
+                        The previous experimental iteration was halted by this scientific integrity blocker:
+                        "${effectiveBlockerDirective}"
+                        You MUST explicitly adjust the mathematical model, parameter bounds, variance, and data mapping in the specification to eliminate and resolve this blocker at its root cause!
+                        ` : ''}
 
                         OUTPUT SPECIFICATION:
                         1. Identify the **Independent Variable** and **Dependent Variable**.
                         2. Define a **plausible mathematical relationship** (Linear, Logarithmic, Exponential, etc.).
                         3. Specify **Sample Size**: MUST BE STRICTLY N=100 agent records to satisfy experimental data power requirements.
                         4. Provide a schema/logic mapping that utilizes the defined **INPUT data template** and **OUTPUT data template** from the Data Plan, ensuring the simulation code models the transformation of the input data into the output data to test the hypothesis.
+                        ${effectiveBlockerDirective ? `5. Specify how the simulation code addresses and prevents the blocker issue: "${effectiveBlockerDirective}".` : ''}
                         
                         COMPLEXITY LIMITATION RULES:
                         - Keep the simulation algorithm direct and transparent. Avoid complex helper systems, nested iterations, or recursion.
@@ -193,6 +213,13 @@ export const CodeSimulator = ({ onComplete, context }) => {
 
                         LOGIC SPECIFICATION:
                         ${instructions}
+
+                        ${effectiveBlockerDirective ? `
+                        CRITICAL ROOT-CAUSE BLOCKER RESOLUTION REQUIREMENT:
+                        The simulation code MUST directly eliminate and resolve the root cause of this blocker:
+                        "${effectiveBlockerDirective}"
+                        Ensure the simulated data records, noise models, and variable transformations satisfy this resolution.
+                        ` : ''}
 
                         REQUIRED ENVIRONMENT API:
                         ${SCIENCE_LIB_API_DOCS}
@@ -226,6 +253,15 @@ export const CodeSimulator = ({ onComplete, context }) => {
                     setCode(initialCode);
                     saveCodeToDb(initialCode);
                     log('Coder', 'Initial script ready for testing.');
+
+                    if (autoStart) {
+                        log('Simulator', 'Autonomous trigger: Initiating simulation execution...');
+                        setTimeout(() => {
+                            if (isMounted.current && !isCancelledRef.current) {
+                                runAgenticSimulation(initialCode);
+                            }
+                        }, 200);
+                    }
                 } catch (err) {
                     if (isMounted.current) addToast("Failed to initialize coder.", "danger");
                 } finally { 
@@ -234,7 +270,7 @@ export const CodeSimulator = ({ onComplete, context }) => {
             };
             runInitializationAgent();
         }
-    }, [isAuthenticated, context, code, addToast]);
+    }, [isAuthenticated, context, code, autoStart, effectiveBlockerDirective, addToast]);
 
     const executeCodeInWorker = (codeToRun: string): Promise<any> => {
         return new Promise((resolve, reject) => {
@@ -304,13 +340,15 @@ export const CodeSimulator = ({ onComplete, context }) => {
         });
     };
 
-    const runAgenticSimulation = async () => {
+    const runAgenticSimulation = async (codeOverride?: string) => {
         if (agenticRun.status === 'running') return;
-        saveCodeToDb(code);
+        const targetCode = codeOverride || code;
+        if (!targetCode) return;
+        saveCodeToDb(targetCode);
         isCancelledRef.current = false;
         setAgenticRun(prev => ({ ...prev, status: 'running', logs: [], iterations: 0 }));
         
-        let currentCode = code;
+        let currentCode = targetCode;
         for (let i = 0; i < agenticRun.maxIterations; i++) {
             if (!isMounted.current) return;
             if (isCancelledRef.current) return;
@@ -376,6 +414,10 @@ export const CodeSimulator = ({ onComplete, context }) => {
                     - Question: ${context.question}
                     - Hypothesis: ${context.hypothesis}
                     - Methodology: ${context.methodology_summary}
+                    ${effectiveBlockerDirective ? `
+                    ROOT-CAUSE BLOCKER CONSTRAINT:
+                    The simulation must address and resolve: "${effectiveBlockerDirective}". Maintain this resolution in your healed loop.
+                    ` : ''}
 
                     EXECUTION / SCHEMA AUDIT FAILURE DETAILS:
                     ${errorStr}
@@ -414,11 +456,27 @@ export const CodeSimulator = ({ onComplete, context }) => {
         if (isMounted.current && !isCancelledRef.current) setAgenticRun(prev => ({ ...prev, status: 'failed' }));
     };
 
+    // Auto-run if autoStart is requested and code is already set while idle
+    useEffect(() => {
+        if (autoStart && code && !isInitializing && agenticRun.status === 'idle') {
+            runAgenticSimulation();
+        }
+    }, [autoStart, code, isInitializing, agenticRun.status]);
+
     return (
         <div>
             <div className="doc-section mb-3">
                 <h6 className="fw-bold">AI Agent Simulation Hub</h6>
                 <p className="small text-white-50">Simulation protocol: Enforcing perfect CSV structure and complete data capture.</p>
+                {effectiveBlockerDirective && (
+                    <div className="alert alert-warning border border-warning d-flex align-items-center mt-2 p-2.5 small">
+                        <i className="bi bi-shield-exclamation fs-5 text-warning me-2"></i>
+                        <div>
+                            <strong>Unblocking at Root Source:</strong> Code generator prompted to eliminate blocker:
+                            <span className="ms-1 text-white fw-bold">"{effectiveBlockerDirective}"</span>
+                        </div>
+                    </div>
+                )}
             </div>
             {isInitializing && <AgenticAnalysisView agenticRun={{logs: initLogs, iterations: 0, maxIterations: 0}} title="Coder Agent Initializing..." />}
             <textarea 
@@ -434,7 +492,7 @@ export const CodeSimulator = ({ onComplete, context }) => {
                     <i className="bi bi-x-circle me-1"></i> Cancel Simulation
                 </button>
             ) : (
-                <button className="btn btn-primary w-100" onClick={runAgenticSimulation} disabled={!code}>
+                <button className="btn btn-primary w-100" onClick={() => runAgenticSimulation()} disabled={!code}>
                     Start Agentic Simulation
                 </button>
             )}

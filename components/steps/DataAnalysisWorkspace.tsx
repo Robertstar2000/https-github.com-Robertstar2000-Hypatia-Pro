@@ -6,7 +6,19 @@ import { runDataAnalysisAgent, parseGeminiError } from '../../services';
 import { GeneratedOutput } from '../common/GeneratedOutput';
 import { AgenticAnalysisView } from '../common/AgenticAnalysisView';
 
-export const DataAnalysisWorkspace = ({ onStepComplete, onAnalysisFailure }) => {
+interface DataAnalysisWorkspaceProps {
+    onStepComplete?: () => void;
+    onAnalysisFailure?: (msg: string) => void;
+    autoStart?: boolean;
+    onOpenEditor?: () => void;
+}
+
+export const DataAnalysisWorkspace: React.FC<DataAnalysisWorkspaceProps> = ({ 
+    onStepComplete, 
+    onAnalysisFailure,
+    autoStart = false,
+    onOpenEditor
+}) => {
     const { activeExperiment, updateExperiment, isAuthenticated } = useExperiment();
     const { addToast } = useToast();
     const [retryCount, setRetryCount] = useState(0);
@@ -108,13 +120,13 @@ export const DataAnalysisWorkspace = ({ onStepComplete, onAnalysisFailure }) => 
 
     // Auto-run trigger
     useEffect(() => {
-        if (activeExperiment.automationMode === 'automated' && 
+        if ((activeExperiment.automationMode === 'automated' || autoStart) && 
             !stepData.output && 
             stepData.input && 
             agenticRun.status === 'idle') {
             performAgenticAnalysis();
         }
-    }, [activeExperiment.automationMode, stepData.output, stepData.input, agenticRun.status, performAgenticAnalysis]);
+    }, [activeExperiment.automationMode, autoStart, stepData.output, stepData.input, agenticRun.status, performAgenticAnalysis]);
 
     return (
         <div className="data-analysis-workspace">
@@ -126,7 +138,12 @@ export const DataAnalysisWorkspace = ({ onStepComplete, onAnalysisFailure }) => 
              ) : (
                  <>
                     {agenticRun.status !== 'running' && stepData.output && (
-                        <div className="d-flex justify-content-end mb-3">
+                        <div className="d-flex justify-content-end align-items-center gap-2 mb-3">
+                             {onOpenEditor && (
+                                 <button className="btn btn-sm btn-outline-info d-flex align-items-center gap-1" onClick={onOpenEditor}>
+                                     <i className="bi bi-pencil-fill"></i> Edit Findings &amp; Analysis
+                                 </button>
+                             )}
                              <button className="btn btn-sm btn-outline-secondary" onClick={() => performAgenticAnalysis()}>
                                 <i className="bi bi-arrow-clockwise me-1"></i> Re-Run Analysis Agent
                             </button>
